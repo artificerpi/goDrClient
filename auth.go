@@ -3,42 +3,44 @@ package main
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"log"
 	"net"
 	"os"
 	"time"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
-/* 发送EAPOL包 */
+// sends the EAPOL message to Authenticator
 func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
 	buffer := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{}
 	gopacket.SerializeLayers(buffer, options,
 		&layers.Ethernet{EthernetType: layers.EthernetTypeEAPOL, SrcMAC: SrcMAC, DstMAC: DstMAC},
-		&myEAPOL{&layers.EAPOL{Version: 0x01, Type: Type}, 0},
+		&MyEAPOL{&layers.EAPOL{Version: 0x01, Type: Type}, 0},
 	)
 	//var err error
 	err := handle.WritePacketData(buffer.Bytes())
 	if err != nil {
-		fmt.Print(err)
+		log.Println(err)
 		os.Exit(0)
 	}
 }
 
-/* 发送EAP包 */
+// sends the EAP message to Authenticator
 func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
 	buffer := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{}
 	gopacket.SerializeLayers(buffer, options,
 		&layers.Ethernet{EthernetType: layers.EthernetTypeEAPOL, SrcMAC: SrcMAC, DstMAC: DstMAC},
-		&myEAPOL{&layers.EAPOL{Version: 0x01, Type: layers.EAPOLTypeEAP}, uint16(len(TypeData)) + 5},
+		&MyEAPOL{&layers.EAPOL{Version: 0x01, Type: layers.EAPOLTypeEAP}, uint16(len(TypeData)) + 5},
 		&layers.EAP{Id: Id, Type: Type, TypeData: TypeData, Code: Code, Length: uint16(len(TypeData) + 5)},
 	)
 	// err error
 	err := handle.WritePacketData(buffer.Bytes())
 	if err != nil {
-		fmt.Print(err)
+		log.Println(err)
 		os.Exit(0)
 	}
 }
@@ -67,27 +69,29 @@ func readNewPacket(packetSrc *gopacket.PacketSource) {
 			case 0x04: //Failure
 				fmt.Println("Failed")
 				fmt.Println("Retry...")
-				time.Sleep(5*time.Second)
-				EAPAuth()
+				time.Sleep(5 * time.Second)
+				startRequest()
 			}
 
 		}
 	}
 
-	end <- true
+	done <- true
 }
 
-/* EAP认证开始 */
-func EAPAuth() {
-	fmt.Println(mac)
-	fmt.Println("EAP Start...")
+// start request to the Authenticator
+func startRequest() {
+	log.Println(mac)
+	log.Println("EAP Start...")
+	// sending the EAPOL-Start message to a multicast group
 	sendEAPOL(0x01, layers.EAPOLTypeStart, mac, boardCastAddr)
 }
 
-/* EAP注销 */
-func EAPLogoff() {
+// sending logoff message
+func logoff() {
+	//send EAPOL-Logoff message to be disconnected from the network.
 	sendEAPOL(0x01, layers.EAPOLTypeLogOff, mac, boardCastAddr)
-	fmt.Println("Logoff...")
+	log.Println("Logoff...")
 }
 
 /* 回应身份(Indentity) */

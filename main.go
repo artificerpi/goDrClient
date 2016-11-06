@@ -26,8 +26,8 @@ var (
 )
 
 var err error
+var done chan bool
 var handle *pcap.Handle
-var end chan bool
 var boardCastAddr net.HardwareAddr
 var serverip [4]byte
 
@@ -35,16 +35,8 @@ var (
 	challenge []byte
 )
 
-func checkError(err error) {
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
-	}
-}
-
 func main() {
-
-	end = make(chan bool)
+	done = make(chan bool) // exist for supporting runing in background
 	var cfg *config.Config
 
 	_, err = os.Stat("config.ini")
@@ -115,7 +107,7 @@ devSelect:
 	fmt.Println(dev)
 	checkError(err)
 
-	EAPAuth()
+	startRequest()
 
 	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
 	go readNewPacket(packetSrc)
@@ -133,5 +125,5 @@ devSelect:
 	defer udpConn.Close()
 	go recvPing()
 
-	<-end
+	<-done // Block forever
 }
