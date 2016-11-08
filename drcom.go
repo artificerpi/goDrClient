@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+type DrCode byte
+
+const (
+	DrCodeMisc    DrCode = 0x07
+	DrCodeMessage DrCode = 0x4d
+	DrCodeAlive   DrCode = 0xff
+)
+
 var (
 	UknCode_1   byte
 	UknCode_2   byte
@@ -15,6 +23,20 @@ var (
 )
 
 var counter byte
+
+// Dr.com 2011
+type Drcom struct {
+	// Contents is the set of bytes that make up this layer.
+	Contents []byte
+	Code     DrCode
+}
+
+func (dr *Drcom) Bytes() []byte {
+	var packet []byte
+	packet = append(packet, byte(dr.Code))
+	packet = append(dr.Contents)
+	return packet
+}
 
 /* 信息包校验码计算 */
 func putCode1(buf []byte) {
@@ -62,10 +84,10 @@ func pingCycle() {
 	}
 }
 
-/* 40字节心跳包发送 */
+// 40字节心跳包发送
 func sendPing40(step byte) {
 	var buf [40]byte
-	buf[0] = 0x07
+	buf[0] = byte(DrCodeMisc)
 	buf[1] = counter
 	buf[2] = 0x28
 	buf[4] = 0x0b
@@ -82,7 +104,7 @@ func sendPing40(step byte) {
 /* 38字节心跳包发送 */
 func sendPing38() {
 	var buf [38]byte
-	buf[0] = 0xff
+	buf[0] = byte(DrCodeAlive)
 	copy(buf[1:5], globalCheck[:])
 	copy(buf[5:17], challenge[4:16])
 	copy(buf[20:24], "Drco")
@@ -104,39 +126,24 @@ func sendPing38() {
 	udpConn.Write(buf[:])
 }
 
-/* 信息包发送 */
+// send info to the authenticator
+// packet 286 bytes: Misc, Info usesrname, host
 func sendPingInfo(data []byte) {
-	var buf [244]byte
-	var otherInfo [201]byte
-	usrLength := len(username)
+	user_name := "201330620" // 长度可变，需要修改
 
-	buf[0] = 0x07
-	buf[1] = 0x01
-	buf[2] = byte(usrLength + 233)
-	buf[4] = 0x03
-	buf[5] = byte(usrLength)
-	copy(buf[6:12], mac)
-	copy(buf[12:16], clientip[:])
-	copy(buf[16:20], []byte{0x02, 0x22, 0x00, 0x24})
-	copy(buf[20:24], data)
-	copy(buf[32:], username)
-	hostname := "sgu"
-	copy(otherInfo[0:32], hostname)
-	copy(otherInfo[32:36], []byte{223, 5, 5, 5})
-	copy(otherInfo[40:44], []byte{223, 6, 6, 6})
-	otherInfo[52] = 0x94
-	otherInfo[56] = 0x06
-	otherInfo[60] = 0x02
-	otherInfo[64] = 0xf0
-	otherInfo[65] = 0x23
-	otherInfo[68] = 0x02
-	copy(otherInfo[72:77], "DrCOM")
-	copy(otherInfo[77:82], []byte{0x05, 0xb8, 0x01, 0x04})
-	copy(otherInfo[136:176], "391515fd339f62b530cd63a027cd4ef95139069f")
-	copy(buf[32+usrLength:233+usrLength], otherInfo[:])
+	var dr Drcom
 
-	putCode1(buf[:usrLength+233])
-	udpConn.Write(buf[:usrLength+233])
+	dr.Code = DrCodeMisc // code
+
+	var buf []byte
+	// append to content
+	buf = append(buf, 0x01)          // Count what?
+	buf = append([]byte{0xf4, 0x00}) // Info username, hostname
+	copy(buf[:], []byte(user_name))
+	copy(buf[:], []byte("１３９Yui-miao"))
+	// add more
+	dr.Contents = buf
+	udpConn.Write(dr.Bytes())
 }
 
 /* 接收服务器的UDP回应 */

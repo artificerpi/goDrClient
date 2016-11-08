@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/md5"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -16,15 +15,25 @@ import (
 func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
 	buffer := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{}
+	ethernetLayer := &layers.Ethernet{
+		EthernetType: layers.EthernetTypeEAPOL,
+		SrcMAC:       SrcMAC,
+		DstMAC:       DstMAC,
+	}
+	eapolLayer := &layers.EAPOL{
+		Version: 0x01,
+		Type:    Type,
+		Length:  0,
+	}
 	gopacket.SerializeLayers(buffer, options,
-		&layers.Ethernet{EthernetType: layers.EthernetTypeEAPOL, SrcMAC: SrcMAC, DstMAC: DstMAC},
-		&MyEAPOL{&layers.EAPOL{Version: 0x01, Type: Type}, 0},
+		ethernetLayer,
+		eapolLayer,
 	)
-	//var err error
+
+	// write packet
 	err := handle.WritePacketData(buffer.Bytes())
 	if err != nil {
 		log.Println(err)
-		os.Exit(0)
 	}
 }
 
@@ -32,43 +41,55 @@ func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, Dst
 func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
 	buffer := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{}
+	ethernetLayer := &layers.Ethernet{
+		EthernetType: layers.EthernetTypeEAPOL,
+		SrcMAC:       SrcMAC,
+		DstMAC:       DstMAC,
+	}
+	eapolLayer := &layers.EAPOL{
+		Version: 0x01,
+		Type:    layers.EAPOLTypeEAP,
+		Length:  uint16(len(TypeData) + 5),
+	}
+	eapLayer := &layers.EAP{
+		Id: Id, Type: Type,
+		TypeData: TypeData,
+		Code:     Code,
+		Length:   uint16(len(TypeData) + 5),
+	}
+
 	gopacket.SerializeLayers(buffer, options,
-		&layers.Ethernet{EthernetType: layers.EthernetTypeEAPOL, SrcMAC: SrcMAC, DstMAC: DstMAC},
-		&MyEAPOL{&layers.EAPOL{Version: 0x01, Type: layers.EAPOLTypeEAP}, uint16(len(TypeData)) + 5},
-		&layers.EAP{Id: Id, Type: Type, TypeData: TypeData, Code: Code, Length: uint16(len(TypeData) + 5)},
+		ethernetLayer,
+		eapolLayer,
+		eapLayer,
 	)
 	// err error
 	err := handle.WritePacketData(buffer.Bytes())
-	if err != nil {
-		log.Println(err)
-		os.Exit(0)
-	}
+	checkError(err)
 }
 
-/* 读取新数据包 */
-func readNewPacket(packetSrc *gopacket.PacketSource) {
+// sniff EAP packets and send response packets
+func sniff(packetSrc *gopacket.PacketSource) {
 	for packet := range packetSrc.Packets() {
 		eapl := packet.Layer(layers.LayerTypeEAP)
-		if eapl != nil {
+		if eapl != nil { // EAP packet
 			switch eapl.(*layers.EAP).Code {
-			case 0x03: //Success
-				fmt.Println("Success")
-				sendPingStart()
-			case 0x01: //Request
-				switch int8(eapl.(*layers.EAP).Type) {
-				case 0x04: //EAP-MD5-CHALLENGE
-					//fmt.Println(eapl.(*layers.EAP).TypeData)
+			case layers.EAPCodeRequest: //Request
+				switch eapl.(*layers.EAP).Type { // request type
+				case layers.EAPTypeIdentity: //Identity
+					go responseIdentity(eapl.(*layers.EAP).Id)
+				case layers.EAPTypeOTP: //EAP-MD5-CHALLENGE
 					go responseMd5Challenge(eapl.(*layers.EAP).TypeData[1:17])
-				case 0x02: //Notification
-					fmt.Println("Failed")
+				case layers.EAPTypeNotification: //Notification
+					log.Println("Failed")
 					os.Exit(0)
-				case 0x01: //Identity
-					//fmt.Print("TRUE")
-					go responseIndentity(eapl.(*layers.EAP).Id)
 				}
-			case 0x04: //Failure
-				fmt.Println("Failed")
-				fmt.Println("Retry...")
+			case layers.EAPCodeSuccess: //Success
+				log.Println("Login success")
+				sendPingStart()
+			case layers.EAPCodeFailure: //Failure
+				log.Println("Failed")
+				log.Println("Retry...")
 				time.Sleep(5 * time.Second)
 				startRequest()
 			}
@@ -81,8 +102,7 @@ func readNewPacket(packetSrc *gopacket.PacketSource) {
 
 // start request to the Authenticator
 func startRequest() {
-	log.Println(mac)
-	log.Println("EAP Start...")
+	log.Println("Start request to Authenticator...")
 	// sending the EAPOL-Start message to a multicast group
 	sendEAPOL(0x01, layers.EAPOLTypeStart, mac, boardCastAddr)
 }
@@ -94,14 +114,14 @@ func logoff() {
 	log.Println("Logoff...")
 }
 
-/* 回应身份(Indentity) */
-func responseIndentity(id byte) {
+// response Identity
+func responseIdentity(id byte) {
 	dataPack := []byte{}
 	dataPack = append(dataPack, []byte(username)...)                     //用户名
 	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x00, 0x00}...) //未知
 	dataPack = append(dataPack, clientip[:]...)                          //客户端IP
-	fmt.Println("Response Identity...")
-	sendEAP(id, 0x01, dataPack, 2, mac, boardCastAddr)
+	log.Println("Response Identity...")
+	sendEAP(id, layers.EAPTypeIdentity, dataPack, layers.EAPCodeResponse, mac, boardCastAddr)
 }
 
 /* 回应MD5-Challenge */
@@ -119,6 +139,6 @@ func responseMd5Challenge(m []byte) {
 	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x26, 0x00}...)
 	dataPack = append(dataPack, []byte(clientip[:])...)
 	challenge = mCal.Sum(nil) //用于后面心跳包
-	fmt.Println("Response EAP-MD5-Challenge...")
-	sendEAP(0, 0x04, dataPack, 2, mac, boardCastAddr)
+	log.Println("Response EAP-MD5-Challenge...")
+	sendEAP(0, layers.EAPTypeOTP, dataPack, layers.EAPCodeResponse, mac, boardCastAddr)
 }
