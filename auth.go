@@ -21,7 +21,7 @@ func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, Dst
 		DstMAC:       DstMAC,
 	}
 	eapolLayer := &layers.EAPOL{
-		Version: 0x01,
+		Version: Version,
 		Type:    Type,
 		Length:  0,
 	}
@@ -65,7 +65,9 @@ func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode
 	)
 	// err error
 	err := handle.WritePacketData(buffer.Bytes())
-	checkError(err)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // sniff EAP packets and send response packets
