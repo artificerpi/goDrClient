@@ -118,6 +118,10 @@ func init() {
 	if err != nil {
 		log.Println(err)
 	}
+	if len(ipStr) == 0 {
+		log.Fatal("You haven't plug the ethernet")
+		os.Exit(1)
+	}
 	fmt.Sscanf(ipStr[0].String(), "%d.%d.%d.%d", &clientip[0], &clientip[1], &clientip[2], &clientip[3])
 
 	// Authenticator Server information
