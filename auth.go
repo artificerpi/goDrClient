@@ -11,6 +11,10 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+var (
+	challenge []byte
+)
+
 // sends the EAPOL message to Authenticator
 func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
 	buffer := gopacket.NewSerializeBuffer()
@@ -106,41 +110,41 @@ func sniff(packetSrc *gopacket.PacketSource) {
 func startRequest() {
 	log.Println("Start request to Authenticator...")
 	// sending the EAPOL-Start message to a multicast group
-	sendEAPOL(0x01, layers.EAPOLTypeStart, mac, boardCastAddr)
+	sendEAPOL(0x01, layers.EAPOLTypeStart, SrcMAC, BoardCastAddr)
 }
 
 // sending logoff message
 func logoff() {
 	//send EAPOL-Logoff message to be disconnected from the network.
-	sendEAPOL(0x01, layers.EAPOLTypeLogOff, mac, boardCastAddr)
+	sendEAPOL(0x01, layers.EAPOLTypeLogOff, SrcMAC, BoardCastAddr)
 	log.Println("Logoff...")
 }
 
 // response Identity
 func responseIdentity(id byte) {
 	dataPack := []byte{}
-	dataPack = append(dataPack, []byte(username)...)                     //用户名
-	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x00, 0x00}...) //未知
-	dataPack = append(dataPack, clientip[:]...)                          //客户端IP
+	dataPack = append(dataPack, []byte(GConfig.Username)...)             // Username
+	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x00, 0x00}...) // Uknown bytes
+	dataPack = append(dataPack, GConfig.ClientIP[:]...)                  // Client IP
 	log.Println("Response Identity...")
-	sendEAP(id, layers.EAPTypeIdentity, dataPack, layers.EAPCodeResponse, mac, boardCastAddr)
+	sendEAP(id, layers.EAPTypeIdentity, dataPack, layers.EAPCodeResponse, SrcMAC, BoardCastAddr)
 }
 
 /* 回应MD5-Challenge */
 func responseMd5Challenge(m []byte) {
 	mPack := []byte{}
 	mPack = append(mPack, 0)
-	mPack = append(mPack, []byte(password)...)
+	mPack = append(mPack, []byte(GConfig.Password)...)
 	mPack = append(mPack, m...)
 	mCal := md5.New()
 	mCal.Write(mPack)
 	dataPack := []byte{}
 	dataPack = append(dataPack, 16)
 	dataPack = append(dataPack, mCal.Sum(nil)...)
-	dataPack = append(dataPack, []byte(username)...)
+	dataPack = append(dataPack, []byte(GConfig.Username)...)
 	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x26, 0x00}...)
-	dataPack = append(dataPack, []byte(clientip[:])...)
+	dataPack = append(dataPack, []byte(GConfig.ClientIP[:])...)
 	challenge = mCal.Sum(nil) //用于后面心跳包
 	log.Println("Response EAP-MD5-Challenge...")
-	sendEAP(0, layers.EAPTypeOTP, dataPack, layers.EAPCodeResponse, mac, boardCastAddr)
+	sendEAP(0, layers.EAPTypeOTP, dataPack, layers.EAPCodeResponse, SrcMAC, BoardCastAddr)
 }

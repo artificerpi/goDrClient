@@ -11,27 +11,9 @@ import (
 )
 
 var (
-	clientip [4]byte
-	mac      net.HardwareAddr
-	dns1     byte
-	dns2     byte
-	username string
-	password string
-)
-
-var (
 	udpConn *net.UDPConn
-)
-
-var done chan bool
-var handle *pcap.Handle
-var boardCastAddr net.HardwareAddr
-var serverip [4]byte
-var serverIpStr string
-
-var (
-	challenge []byte
-	dev       string
+	handle  *pcap.Handle
+	done    chan bool
 )
 
 func init() {
@@ -43,7 +25,7 @@ func main() {
 
 	//open eth interface and get the handle
 	var err error
-	handle, err = pcap.OpenLive(dev, 1024, false, -1*time.Second)
+	handle, err = pcap.OpenLive(GConfig.InterfaceName, 1024, false, -1*time.Second)
 	defer handle.Close()
 	if err != nil {
 		log.Println(err)
@@ -67,7 +49,8 @@ func main() {
 	go sniff(packetSrc)
 
 	// keep alive
-	udpServerAddr, err := net.ResolveUDPAddr("udp4", serverIpStr+":61440")
+	serverIPStr := string(GConfig.ServerIP[:])
+	udpServerAddr, err := net.ResolveUDPAddr("udp4", serverIPStr+":61440")
 	if err != nil {
 		log.Println(err)
 	}

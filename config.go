@@ -59,15 +59,15 @@ func init() {
 	}
 
 	// load account info
-	username, _ = cfg.String("account", "username")
-	password, _ = cfg.String("account", "password")
-	if username == "" || password == "" {
+	GConfig.Username, _ = cfg.String("account", "username")
+	GConfig.Password, _ = cfg.String("account", "password")
+	if GConfig.Username == "" || GConfig.Password == "" {
 		fmt.Print("Username: ")
-		fmt.Scan(&username)
-		cfg.AddOption("account", "username", username)
+		fmt.Scan(&GConfig.Username)
+		cfg.AddOption("account", "username", GConfig.Username)
 		fmt.Print("Password: ")
-		fmt.Scan(&password)
-		cfg.AddOption("account", "password", password)
+		fmt.Scan(&GConfig.Password)
+		cfg.AddOption("account", "password", GConfig.Password)
 	}
 
 	// load device info
@@ -99,8 +99,8 @@ func init() {
 		log.Println("null interface")
 		os.Exit(1)
 	}
-	mac = iface.HardwareAddr
-	if mac == nil {
+	SrcMAC = iface.HardwareAddr
+	if SrcMAC == nil {
 		log.Println("null mac")
 		os.Exit(1)
 	}
@@ -108,31 +108,31 @@ func init() {
 	switch runtime.GOOS {
 	case "windows": // dev = adapter device name
 		adapterName, _ := getDeviceAdapterName(iface.Index)
-		dev = "\\Device\\NPF_" + adapterName
+		GConfig.InterfaceName = "\\Device\\NPF_" + adapterName
 	default:
-		dev = ifaceName
+		GConfig.InterfaceName = ifaceName
 	}
 
 	// Network information (optional)
-	ipStr, err := iface.Addrs() // get client ip
+	clientIP, err := iface.Addrs() // get client ip
 	if err != nil {
 		log.Println(err)
 	}
-	if len(ipStr) == 0 {
+	if len(clientIP) == 0 {
 		log.Fatal("You haven't plug the ethernet")
 		os.Exit(1)
 	}
-	fmt.Sscanf(ipStr[0].String(), "%d.%d.%d.%d", &clientip[0], &clientip[1], &clientip[2], &clientip[3])
+	GConfig.ClientIP = []byte(clientIP[0].String())
 
 	// Authenticator Server information
-	serverIpStr, _ = cfg.String("server", "ip")
+	serverIpStr, _ := cfg.String("server", "ip")
 	if serverIpStr == "" {
 		fmt.Print("Server IP: ")
 		fmt.Scan(&serverIpStr)
 		cfg.AddOption("server", "ip", serverIpStr)
 	}
-	fmt.Sscanf(serverIpStr, "%d.%d.%d.%d", &serverip[0], &serverip[1], &serverip[2], &serverip[3])
-	boardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	GConfig.ServerIP = []byte(serverIpStr)
+	BoardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 	// write back to configuration file
 	cfg.WriteFile(ConfigFileName, os.FileMode(os.O_WRONLY), AppName+" "+Version+" Configuration")

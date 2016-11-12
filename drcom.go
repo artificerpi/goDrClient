@@ -94,7 +94,7 @@ func sendPing40(step byte) {
 	buf[5] = step
 	copy(buf[6:10], []byte{0xdc, 0x02, 0x6c, 0x6f})
 	if step == 3 {
-		copy(buf[28:32], clientip[:])
+		copy(buf[28:32], GConfig.ClientIP[:])
 		putCode2(buf[:])
 	}
 	counter = counter + 1
@@ -108,14 +108,14 @@ func sendPing38() {
 	copy(buf[1:5], globalCheck[:])
 	copy(buf[5:17], challenge[4:16])
 	copy(buf[20:24], "Drco")
-	copy(buf[24:28], serverip[:])
+	copy(buf[24:28], GConfig.ServerIP[:])
 	buf[28] = UknCode_1
 	if UknCode_2 >= 128 {
 		buf[29] = UknCode_2<<1 | 1
 	} else {
 		buf[29] = UknCode_2 << 1
 	}
-	copy(buf[30:34], clientip[:])
+	copy(buf[30:34], GConfig.ClientIP[:])
 	buf[34] = 0x01
 	if UknCode_3%2 == 0 {
 		buf[35] = UknCode_3 >> 1
