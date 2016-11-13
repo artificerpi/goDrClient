@@ -114,15 +114,28 @@ func init() {
 	}
 
 	// Network information (optional)
-	clientIP, err := iface.Addrs() // get client ip
+	addrs, err := iface.Addrs() // get client ip
 	if err != nil {
 		log.Println(err)
 	}
-	if len(clientIP) == 0 {
+	if len(addrs) == 0 {
 		log.Fatal("You haven't plug the ethernet")
 		os.Exit(1)
 	}
-	GConfig.ClientIP = []byte(clientIP[0].String())
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				GConfig.ClientIP = ipnet.IP
+			}
+		}
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	if GConfig.ClientIP == nil {
+		log.Fatal("Null client ip")
+	}
 
 	// Authenticator Server information
 	serverIpStr, _ := cfg.String("server", "ip")
