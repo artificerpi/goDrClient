@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 )
 
 var (
-	udpConn *net.UDPConn 
+	udpConn *net.UDPConn
 	handle  *pcap.Handle
 	done    chan bool
 )
@@ -20,12 +21,51 @@ func init() {
 	log.Println("Executing...")
 }
 
+// sniff EAP packets and send response packets
+func sniff(packetSrc *gopacket.PacketSource) {
+	var ethLayer layers.Ethernet // structures can be reused
+	var eapLayer layers.EAP
+	var eapolLayer layers.EAPOL
+	var ipLayer layers.IPv4
+	var udpLayer layers.UDP
+	for packet := range packetSrc.Packets() {
+		parser := gopacket.NewDecodingLayerParser( // just parse needed layer
+			layers.LayerTypeEthernet,
+			&ethLayer,   // essential
+			&eapLayer,   // eap packet needed
+			&eapolLayer, // eap packet needed
+			&ipLayer,    // udp packet needed
+			&udpLayer,   // udp packet needed
+		)
+		foundLayerTypes := []gopacket.LayerType{}
+
+		// ignore error of decoding drcom packet (payload bytes of udp)
+		_ = parser.DecodeLayers(packet.Data(), &foundLayerTypes)
+
+		for _, layerType := range foundLayerTypes {
+			switch layerType {
+			case layers.LayerTypeUDP:
+				if len(udpLayer.Payload) < 8 {
+					break
+				}
+				// TODO not sniff your own packet
+				sniffDRCOM(udpLayer.Payload[8:]) // this line of code used more often
+			case layers.LayerTypeEAP:
+				sniffEAP(eapLayer)
+			}
+		}
+	}
+
+	done <- true
+}
+
 func main() {
 	done = make(chan bool) // exist for supporting runing in background
 
 	//open eth interface and get the handle
 	var err error
 	handle, err = pcap.OpenLive(GConfig.InterfaceName, 1024, false, -1*time.Second)
+	//	handle, err = pcap.OpenOffline("fsnet1.pcapng")
 	defer handle.Close()
 	if err != nil {
 		log.Println(err)
@@ -48,18 +88,18 @@ func main() {
 	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
 	go sniff(packetSrc)
 
-	// keep alive
-	serverIPStr := string(GConfig.ServerIP[:])
-	udpServerAddr, err := net.ResolveUDPAddr("udp4", serverIPStr+":61440")
+	// dial udp connection
+	serverIPStr := GConfig.ServerIP.String()
+	udpNet := "udp4"
+	udpServerAddr, err := net.ResolveUDPAddr(udpNet, serverIPStr+":61440")
 	if err != nil {
 		log.Println(err)
 	}
-	udpConn, err = net.DialUDP("udp4", nil, udpServerAddr)
+	udpConn, err = net.DialUDP(udpNet, nil, udpServerAddr)
 	if err != nil {
 		log.Println(err)
 	}
 	defer udpConn.Close()
-	go recvPing()
 
 	<-done // Block forever
 }

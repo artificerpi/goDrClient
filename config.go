@@ -18,7 +18,7 @@ const (
 
 var (
 	GConfig       Config           // gofsnet configuration
-	SrcMAC        net.HardwareAddr // mac address of interface
+	InterfaceMAC  net.HardwareAddr // mac address of interface
 	BoardCastAddr net.HardwareAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 )
 
@@ -99,8 +99,8 @@ func init() {
 		log.Println("null interface")
 		os.Exit(1)
 	}
-	SrcMAC = iface.HardwareAddr
-	if SrcMAC == nil {
+	InterfaceMAC = iface.HardwareAddr
+	if InterfaceMAC == nil {
 		log.Println("null mac")
 		os.Exit(1)
 	}
@@ -144,7 +144,10 @@ func init() {
 		fmt.Scan(&serverIpStr)
 		cfg.AddOption("server", "ip", serverIpStr)
 	}
-	GConfig.ServerIP = []byte(serverIpStr)
+	GConfig.ServerIP = net.ParseIP(serverIpStr)
+	if GConfig.ServerIP == nil {
+		log.Println("Illegal server ip ")
+	}
 	BoardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 	// write back to configuration file

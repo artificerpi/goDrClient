@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"log"
 	"net"
-	"os"
 	"time"
 
 	"github.com/google/gopacket"
@@ -56,7 +55,8 @@ func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode
 		Length:  uint16(len(TypeData) + 5),
 	}
 	eapLayer := &layers.EAP{
-		Id: Id, Type: Type,
+		Id:       Id,
+		Type:     Type,
 		TypeData: TypeData,
 		Code:     Code,
 		Length:   uint16(len(TypeData) + 5),
@@ -67,6 +67,7 @@ func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode
 		eapolLayer,
 		eapLayer,
 	)
+
 	// err error
 	err := handle.WritePacketData(buffer.Bytes())
 	if err != nil {
@@ -74,49 +75,43 @@ func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode
 	}
 }
 
-// sniff EAP packets and send response packets
-func sniff(packetSrc *gopacket.PacketSource) {
-	for packet := range packetSrc.Packets() {
-		eapl := packet.Layer(layers.LayerTypeEAP)
-		if eapl != nil { // EAP packet
-			switch eapl.(*layers.EAP).Code {
-			case layers.EAPCodeRequest: //Request
-				switch eapl.(*layers.EAP).Type { // request type
-				case layers.EAPTypeIdentity: //Identity
-					go responseIdentity(eapl.(*layers.EAP).Id)
-				case layers.EAPTypeOTP: //EAP-MD5-CHALLENGE
-					go responseMd5Challenge(eapl.(*layers.EAP).TypeData[1:17])
-				case layers.EAPTypeNotification: //Notification
-					log.Println("Failed")
-					os.Exit(0)
-				}
-			case layers.EAPCodeSuccess: //Success
-				log.Println("Login success")
-				sendPingStart()
-			case layers.EAPCodeFailure: //Failure
-				log.Println("Failed")
-				log.Println("Retry...")
-				time.Sleep(5 * time.Second)
-				startRequest()
-			}
-
+//// TODO rewrite the sniff of auth part
+func sniffEAP(eapLayer layers.EAP) {
+	switch eapLayer.Code {
+	case layers.EAPCodeRequest: //Request
+		switch eapLayer.Type { // request type
+		case layers.EAPTypeIdentity: //Identity
+			go responseIdentity(eapLayer.Id)
+		case layers.EAPTypeOTP: //EAP-MD5-CHALLENGE
+			go responseMd5Challenge(eapLayer.TypeData[1:17])
+		case layers.EAPTypeNotification: //Notification
+			log.Println("Failed")
+			logoff()
+			startRequest()
 		}
+	case layers.EAPCodeSuccess: //Success
+		log.Println("Login success")
+		startUDPRequest() // start keep-alive
+	case layers.EAPCodeFailure: //Failure
+		log.Println("Failed")
+		log.Println("Retry...")
+		time.Sleep(5 * time.Second)
+		startRequest()
 	}
 
-	done <- true
 }
 
 // start request to the Authenticator
 func startRequest() {
 	log.Println("Start request to Authenticator...")
 	// sending the EAPOL-Start message to a multicast group
-	sendEAPOL(0x01, layers.EAPOLTypeStart, SrcMAC, BoardCastAddr)
+	sendEAPOL(0x01, layers.EAPOLTypeStart, InterfaceMAC, BoardCastAddr)
 }
 
 // sending logoff message
 func logoff() {
 	//send EAPOL-Logoff message to be disconnected from the network.
-	sendEAPOL(0x01, layers.EAPOLTypeLogOff, SrcMAC, BoardCastAddr)
+	sendEAPOL(0x01, layers.EAPOLTypeLogOff, InterfaceMAC, BoardCastAddr)
 	log.Println("Logoff...")
 }
 
@@ -124,27 +119,27 @@ func logoff() {
 func responseIdentity(id byte) {
 	dataPack := []byte{}
 	dataPack = append(dataPack, []byte(GConfig.Username)...)             // Username
-	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x00, 0x00}...) // Uknown bytes
+	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x00, 0x00}...) // Fixed Uknown bytes
 	dataPack = append(dataPack, GConfig.ClientIP[:]...)                  // Client IP
 	log.Println("Response Identity...")
-	sendEAP(id, layers.EAPTypeIdentity, dataPack, layers.EAPCodeResponse, SrcMAC, BoardCastAddr)
+	sendEAP(id, layers.EAPTypeIdentity, dataPack, layers.EAPCodeResponse, InterfaceMAC, BoardCastAddr)
 }
 
-/* 回应MD5-Challenge */
+// response MD5-Challenge  md( EAP-MD5 Challange + Password) + Extra data
 func responseMd5Challenge(m []byte) {
 	mPack := []byte{}
 	mPack = append(mPack, 0)
 	mPack = append(mPack, []byte(GConfig.Password)...)
 	mPack = append(mPack, m...)
-	mCal := md5.New()
+	mCal := md5.New() //new hash.Hash
 	mCal.Write(mPack)
+	challenge = mCal.Sum(nil) //用于后面心跳包
 	dataPack := []byte{}
-	dataPack = append(dataPack, 16)
+	dataPack = append(dataPack, 16) // EAP-MD5 Value-Size
 	dataPack = append(dataPack, mCal.Sum(nil)...)
 	dataPack = append(dataPack, []byte(GConfig.Username)...)
 	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x26, 0x00}...)
 	dataPack = append(dataPack, []byte(GConfig.ClientIP[:])...)
-	challenge = mCal.Sum(nil) //用于后面心跳包
 	log.Println("Response EAP-MD5-Challenge...")
-	sendEAP(0, layers.EAPTypeOTP, dataPack, layers.EAPCodeResponse, SrcMAC, BoardCastAddr)
+	sendEAP(0, layers.EAPTypeOTP, dataPack, layers.EAPCodeResponse, InterfaceMAC, BoardCastAddr)
 }

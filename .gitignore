@@ -26,3 +26,4 @@ goDrClient
 *.prof
 *.bak
 *.ini
+*.pcapng

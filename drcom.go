@@ -3,9 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 )
+
+// Dr.com protocol is based on udp
 
 type DrCode byte
 
@@ -20,22 +24,174 @@ var (
 	UknCode_2   byte
 	UknCode_3   byte
 	globalCheck [4]byte
+	counter     byte
+	drLayer     DRCOM
 )
 
-var counter byte
-
-// Dr.com 2011
-type Drcom struct {
+// DRCOM defines the Dr.com 2011 protocol
+type DRCOM struct {
 	// Contents is the set of bytes that make up this layer.
 	Contents []byte
-	Code     DrCode
+
+	Code       DrCode // code for identification
+	TypeData   []byte // bytes depends on code
+	ExtraBytes []byte // unknow bytes, like payload
+
+	// common used types
+	Type byte // for misc type
+	Step byte // for loop alive message (0x01, 0x02, 0x03, 0x04)
 }
 
-func (dr *Drcom) Bytes() []byte {
-	var packet []byte
-	packet = append(packet, byte(dr.Code))
-	packet = append(dr.Contents)
-	return packet
+// DecodeFromBytes decodes the slice into the DRCOM struct.
+func (d *DRCOM) DecodeFromBytes(data []byte) error {
+	if len(data) < 2 {
+		return errors.New("DRCOM packet too short")
+	}
+
+	d.Contents = data[:len(data)]
+	d.Code = DrCode(data[0])
+	d.TypeData = data[2:]
+
+	if d.Code == DrCodeMisc {
+		d.Type = data[2]
+		if d.Type == 0x28 {
+			d.Step = data[5]
+		}
+	}
+	return nil
+}
+
+// LayerContents returns the information that our layer
+// provides. In this case it is a header layer so
+// we return the header information
+func (d *DRCOM) LayerContents() []byte {
+	if len(d.Contents) == 0 && len(d.TypeData) > 0 { // data to be sent
+		d.Contents = append(d.Contents, byte(d.Code), 0x00)
+		d.Contents = append(d.Contents, d.TypeData...)
+		d.Contents = append(d.Contents, d.ExtraBytes...)
+	}
+	return d.Contents
+}
+
+// start udp request to the server
+func startUDPRequest() {
+	drLayer = DRCOM{}
+	drLayer.Code = DrCodeMisc
+	drLayer.Type = 0x08
+	drLayer.TypeData = []byte{drLayer.Type, 0x00}
+	drLayer.ExtraBytes = []byte{0x01, 0x00, 0x00, 0x00}
+
+	rawBytes := drLayer.LayerContents()
+
+	udpConn.Write(rawBytes)
+	log.Printf("%x\n", rawBytes)
+	log.Println("start udp request")
+}
+
+//	TODO sniff drcom
+func sniffDRCOM(rawBytes []byte) {
+	err := drLayer.DecodeFromBytes(rawBytes)
+	if err != nil {
+		log.Println(err)
+	}
+	// for debug
+	log.Printf("content %x\n", drLayer.Contents)
+	log.Printf("raw byte %x\n", rawBytes)
+	if drLayer.Code == DrCodeMisc {
+		switch drLayer.Type {
+		case 0x10: // response for alive
+			if len(rawBytes) == 32 { // request for udp auth
+				log.Println("requested dr login auth")
+				sendAuthInfo(drLayer.TypeData[7:11]) //Info username, hostname
+			}
+			if len(rawBytes) == 64 { // request for alive message
+				log.Println("requested alive message after step 4")
+				sendPing40(1) // send pkt1 step 1
+			}
+		case 0x28:
+			if drLayer.Step == 0x02 { //receive step 2 message
+				log.Println("requested step 2 message")
+				sendPing40(3) // send Step 3 message
+			}
+			if drLayer.Step == 0x04 { // receive step 4 message
+				log.Println("send 38 bytes ")
+				sendPing38()
+			}
+		case 0x30: // packet after auth
+			UknCode_1 = drLayer.TypeData[23]
+			UknCode_2 = drLayer.TypeData[24]
+			UknCode_3 = drLayer.TypeData[30]
+			//			log.Println
+		case 0x4d: // file message
+			sendPing40(1) // send step 1 message
+			log.Println("step1")
+		}
+	}
+}
+
+// Step 1 and 3, Drcom Packet type: 0x2800
+// 40字节心跳包发送
+func sendPing40(step byte) {
+	var buf [40]byte
+	buf[0] = byte(DrCodeMisc)
+	buf[1] = counter
+	buf[2] = 0x28 // Type 0x2800
+	buf[4] = 0x0b //fixed byte
+	buf[5] = step
+	copy(buf[6:10], []byte{0xdc, 0x02, 0x6c, 0x6f})
+	if step == 3 { // add IP info for Step 3
+		copy(buf[28:32], GConfig.ClientIP[:])
+		//		putCode2(buf[:])
+	}
+	counter = counter + 1
+	udpConn.Write(buf[:])
+}
+
+// keep alive message request
+// 38字节心跳包发送
+func sendPing38() {
+	var buf [38]byte
+	buf[0] = byte(DrCodeAlive)
+	copy(buf[1:5], globalCheck[:]) // MD5A
+	copy(buf[5:17], challenge[4:16])
+	// [17:20] Zeros
+	copy(buf[20:24], "Drco")              // unknown drco
+	copy(buf[24:28], GConfig.ServerIP[:]) // Server IP
+	buf[28] = UknCode_1
+	if UknCode_2 >= 128 {
+		buf[29] = UknCode_2<<1 | 1
+	} else {
+		buf[29] = UknCode_2 << 1
+	}
+	copy(buf[30:34], GConfig.ClientIP[:])
+	buf[34] = 0x01
+	if UknCode_3%2 == 0 {
+		buf[35] = UknCode_3 >> 1
+	} else {
+		buf[35] = UknCode_3>>1 | 128
+	}
+	binary.LittleEndian.PutUint16(buf[36:38], uint16(time.Now().Unix()))
+	udpConn.Write(buf[:])
+}
+
+// send auth info to the authenticator
+// packet 286 bytes: Misc, Info usesrname, host
+func sendAuthInfo(data []byte) {
+	user_name := "201330620" // 长度可变，需要修改
+
+	var dr DRCOM
+
+	dr.Code = DrCodeMisc // code
+
+	var buf []byte
+	// append to content
+	buf = append(buf, 0x01)          // Count what?
+	buf = append([]byte{0xf4, 0x00}) // Info username, hostname
+	copy(buf[:], []byte(user_name))
+	copy(buf[:], []byte("１３９Yui-miao"))
+	// add more
+	dr.TypeData = buf
+	udpConn.Write(dr.Contents)
 }
 
 /* 信息包校验码计算 */
@@ -57,7 +213,7 @@ func putCode1(buf []byte) {
 	binary.LittleEndian.PutUint32(globalCheck[:], v6*19680126)
 }
 
-/* 40字节心跳包校验码计算 */
+// 40字节心跳包校验码计算
 func putCode2(buf []byte) {
 	var tmp, v5 uint16
 	var b_tmp *bytes.Buffer
@@ -67,108 +223,4 @@ func putCode2(buf []byte) {
 		v5 ^= tmp
 	}
 	binary.LittleEndian.PutUint32(buf[24:28], uint32(v5)*711)
-}
-
-func sendPingStart() {
-	udpConn.Write([]byte{0x07, 0x00, 0x08, 0x00, 0x01, 0x00, 0x00, 0x00})
-}
-
-/* 两种心跳包循环发送 */
-func pingCycle() {
-	time.Sleep(1 * time.Second)
-	for {
-		sendPing40(1)
-		time.Sleep(10 * time.Second)
-		sendPing38()
-		time.Sleep(5 * time.Second)
-	}
-}
-
-// 40字节心跳包发送
-func sendPing40(step byte) {
-	var buf [40]byte
-	buf[0] = byte(DrCodeMisc)
-	buf[1] = counter
-	buf[2] = 0x28
-	buf[4] = 0x0b
-	buf[5] = step
-	copy(buf[6:10], []byte{0xdc, 0x02, 0x6c, 0x6f})
-	if step == 3 {
-		copy(buf[28:32], GConfig.ClientIP[:])
-		putCode2(buf[:])
-	}
-	counter = counter + 1
-	udpConn.Write(buf[:])
-}
-
-/* 38字节心跳包发送 */
-func sendPing38() {
-	var buf [38]byte
-	buf[0] = byte(DrCodeAlive)
-	copy(buf[1:5], globalCheck[:])
-	copy(buf[5:17], challenge[4:16])
-	copy(buf[20:24], "Drco")
-	copy(buf[24:28], GConfig.ServerIP[:])
-	buf[28] = UknCode_1
-	if UknCode_2 >= 128 {
-		buf[29] = UknCode_2<<1 | 1
-	} else {
-		buf[29] = UknCode_2 << 1
-	}
-	copy(buf[30:34], GConfig.ClientIP[:])
-	buf[34] = 0x01
-	if UknCode_3%2 == 0 {
-		buf[35] = UknCode_3 >> 1
-	} else {
-		buf[35] = UknCode_3>>1 | 128
-	}
-	binary.LittleEndian.PutUint16(buf[36:38], uint16(time.Now().Unix()))
-	udpConn.Write(buf[:])
-}
-
-// send info to the authenticator
-// packet 286 bytes: Misc, Info usesrname, host
-func sendPingInfo(data []byte) {
-	user_name := "201330620" // 长度可变，需要修改
-
-	var dr Drcom
-
-	dr.Code = DrCodeMisc // code
-
-	var buf []byte
-	// append to content
-	buf = append(buf, 0x01)          // Count what?
-	buf = append([]byte{0xf4, 0x00}) // Info username, hostname
-	copy(buf[:], []byte(user_name))
-	copy(buf[:], []byte("１３９Yui-miao"))
-	// add more
-	dr.Contents = buf
-	udpConn.Write(dr.Bytes())
-}
-
-/* 接收服务器的UDP回应 */
-func recvPing() {
-	data := [4096]byte{}
-	for {
-		n, _, err := udpConn.ReadFromUDP(data[0:])
-		if err != nil {
-			fmt.Println(err)
-		}
-		if n > 0 {
-			if data[0] == 0x07 { //应答包
-				if data[2] == 0x10 && n == 32 { //第一次应答
-					sendPingInfo(data[8:12]) //发送用户信息包
-				} else if data[2] == 0x30 { //第二次应答
-					UknCode_1 = data[24]
-					UknCode_2 = data[25]
-					UknCode_3 = data[31]
-					go pingCycle() //发送Ping-1
-				} else if data[2] == 0x28 { //Ping应答
-					if data[5] == 0x02 { //收到Ping-2
-						sendPing40(3) //发送Ping-3
-					}
-				}
-			}
-		}
-	}
 }
