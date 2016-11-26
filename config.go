@@ -14,6 +14,7 @@ const (
 	AppName        string = "gofsnet"
 	Version        string = "0.0.1"
 	ConfigFileName string = "config.ini"
+	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
 
 var (
@@ -38,10 +39,12 @@ type Config struct {
 	InterfaceName string // or interface struct?
 
 	// Server information
-	ServerIP net.IP
+	ServerIP   net.IP
+	ServerName string
 }
 
-//TODO what is init for?
+//load and check configuration
+//default setting is for scut dormitory net
 func init() {
 	// load config
 	log.Println("Loading configuration ...")
@@ -138,7 +141,7 @@ func init() {
 	}
 
 	// Authenticator Server information
-	serverIpStr, _ := cfg.String("server", "ip")
+	serverIpStr, _ := cfg.String("server", "ip") // server ip
 	if serverIpStr == "" {
 		fmt.Print("Server IP: ")
 		fmt.Scan(&serverIpStr)
@@ -148,6 +151,23 @@ func init() {
 	if GConfig.ServerIP == nil {
 		log.Println("Illegal server ip ")
 	}
+	GConfig.ServerName, _ = cfg.String("server", "name") // server name
+	if GConfig.ServerName == "" {
+		GConfig.ServerName = "139Yui-miao"
+		cfg.AddOption("server", "name", GConfig.ServerName)
+	}
+	dns1, _ := cfg.String("server", "dns1") // dns1
+	if dns1 == "" {
+		dns1 = "222.201.130.30"
+		cfg.AddOption("server", "dns1", dns1)
+	}
+	GConfig.DNS1 = net.ParseIP(dns1)
+	dns2, _ := cfg.String("server", "dns2") // dns2
+	if dns2 == "" {
+		dns2 = "222.201.130.33"
+		cfg.AddOption("server", "dns2", dns2)
+	}
+	GConfig.DNS2 = net.ParseIP(dns2)
 	BoardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 	// write back to configuration file

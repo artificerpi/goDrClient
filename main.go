@@ -18,6 +18,8 @@ var (
 )
 
 func init() {
+	log.Println(AppName, ": go version DrCom client by artificerpi")
+	log.Println("Project url:", Copyright)
 	log.Println("Executing...")
 }
 
@@ -45,11 +47,7 @@ func sniff(packetSrc *gopacket.PacketSource) {
 		for _, layerType := range foundLayerTypes {
 			switch layerType {
 			case layers.LayerTypeUDP:
-				if len(udpLayer.Payload) < 8 {
-					break
-				}
-				// TODO not sniff your own packet
-				sniffDRCOM(udpLayer.Payload[8:]) // this line of code used more often
+				sniffDRCOM(udpLayer.Payload) // this line of code used more often
 			case layers.LayerTypeEAP:
 				sniffEAP(eapLayer)
 			}
@@ -76,8 +74,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	//set filter
-	var filter string = "ether proto 0x888e || udp port 61440"
+	//set filter, filter 802.1X and incoming drcom message
+	var filter string = "ether proto 0x888e || udp src port 61440"
 	err = handle.SetBPFFilter(filter)
 	if err != nil {
 		log.Fatal(err)
