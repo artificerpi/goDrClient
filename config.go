@@ -165,7 +165,7 @@ func init() {
 	BoardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 	// write back to configuration file
-	cfg.WriteFile(ConfigFileName, os.FileMode(os.O_WRONLY), AppName+" "+Version+" Configuration")
+	cfg.WriteFile(ConfigFileName, os.FileMode(644), AppName+" "+Version+" Configuration")
 }
 
 // TODO setting ip and dns of the network interface

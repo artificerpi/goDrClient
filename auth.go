@@ -103,7 +103,7 @@ func sniffEAP(eapLayer layers.EAP) {
 func startRequest() {
 	logoff()
 	log.Println("Start request to Authenticator...")
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	// sending the EAPOL-Start message to a multicast group
 	sendEAPOL(0x01, layers.EAPOLTypeStart, InterfaceMAC, BoardCastAddr)
 }
