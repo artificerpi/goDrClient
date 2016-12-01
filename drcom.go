@@ -101,12 +101,12 @@ func sniffDRCOM(rawBytes []byte) {
 				sendPacket40(0x01) // send step 1 packet
 			}
 		case 0x28:
-			if dr.Step == 0x02 { //receive step 2 packet
+			if dr.Step == 0x02 { //received step 2 packet
 				log.Println("requested step 2 message")
 				sendPacket40(0x03) // send step 3 packet
-				go sendPacket38()  //TODO temporary solution for uncracked bytes in step3
+				sendPacket38()
 			}
-			if dr.Step == 0x04 { // receive step 4 packet
+			if dr.Step == 0x04 { // received step 4 packet TODO
 				log.Println("send 38 bytes ")
 				go sendPacket38()
 			}

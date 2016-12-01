@@ -85,25 +85,23 @@ func sniffEAP(eapLayer layers.EAP) {
 		case layers.EAPTypeOTP: //EAP-MD5-CHALLENGE
 			go responseMd5Challenge(eapLayer.TypeData[1:17])
 		case layers.EAPTypeNotification: //Notification
-			log.Println("Failed")
-			startRequest()
+			log.Println("EAP packet error")
 		}
 	case layers.EAPCodeSuccess: //Success
 		log.Println("EAP auth success")
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
-		log.Println("Failed")
+		log.Println("EAP auth Failed")
+		time.Sleep(5 * time.Second)
 		log.Println("Retry...")
-		startRequest()
+		go startRequest()
 	}
 
 }
 
 // start request to the Authenticator
 func startRequest() {
-	logoff()
 	log.Println("Start request to Authenticator...")
-	time.Sleep(3 * time.Second)
 	// sending the EAPOL-Start message to a multicast group
 	sendEAPOL(0x01, layers.EAPOLTypeStart, InterfaceMAC, BoardCastAddr)
 }

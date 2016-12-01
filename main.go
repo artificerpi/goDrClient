@@ -81,6 +81,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	logoff()
+	time.Sleep(3 * time.Second)
 	startRequest()
 
 	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
