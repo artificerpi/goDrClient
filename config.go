@@ -12,7 +12,7 @@ import (
 
 const (
 	AppName        string = "gofsnet"
-	Version        string = "0.1.0"
+	Version        string = "0.6.0"
 	ConfigFileName string = "config.ini"
 	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
