@@ -86,16 +86,14 @@ func sniffEAP(eapLayer layers.EAP) {
 			go responseMd5Challenge(eapLayer.TypeData[1:17])
 		case layers.EAPTypeNotification: //Notification
 			log.Println("Failed")
-			logoff()
 			startRequest()
 		}
 	case layers.EAPCodeSuccess: //Success
-		log.Println("Login success")
+		log.Println("EAP auth success")
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("Failed")
 		log.Println("Retry...")
-		time.Sleep(5 * time.Second)
 		startRequest()
 	}
 
@@ -103,7 +101,9 @@ func sniffEAP(eapLayer layers.EAP) {
 
 // start request to the Authenticator
 func startRequest() {
+	logoff()
 	log.Println("Start request to Authenticator...")
+	time.Sleep(2 * time.Second)
 	// sending the EAPOL-Start message to a multicast group
 	sendEAPOL(0x01, layers.EAPOLTypeStart, InterfaceMAC, BoardCastAddr)
 }
@@ -120,7 +120,7 @@ func responseIdentity(id byte) {
 	dataPack := []byte{}
 	dataPack = append(dataPack, []byte(GConfig.Username)...)             // Username
 	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x00, 0x00}...) // Fixed Uknown bytes
-	dataPack = append(dataPack, GConfig.ClientIP[:]...)                  // Client IP
+	dataPack = append(dataPack, []byte(GConfig.ClientIP.To4())...)       // Client IP
 	log.Println("Response Identity...")
 	sendEAP(id, layers.EAPTypeIdentity, dataPack, layers.EAPCodeResponse, InterfaceMAC, BoardCastAddr)
 }
@@ -139,7 +139,7 @@ func responseMd5Challenge(m []byte) {
 	dataPack = append(dataPack, mCal.Sum(nil)...)
 	dataPack = append(dataPack, []byte(GConfig.Username)...)
 	dataPack = append(dataPack, []byte{0x00, 0x44, 0x61, 0x26, 0x00}...)
-	dataPack = append(dataPack, []byte(GConfig.ClientIP[:])...)
+	dataPack = append(dataPack, []byte(GConfig.ClientIP.To4())...)
 	log.Println("Response EAP-MD5-Challenge...")
 	sendEAP(0, layers.EAPTypeOTP, dataPack, layers.EAPCodeResponse, InterfaceMAC, BoardCastAddr)
 }

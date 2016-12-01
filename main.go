@@ -18,7 +18,7 @@ var (
 )
 
 func init() {
-	log.Println(AppName, ": go version DrCom client by artificerpi")
+	log.Println(AppName, Version, "-- go version Drcom client by artificerpi")
 	log.Println("Project url:", Copyright)
 	log.Println("Executing...")
 }

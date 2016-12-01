@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"log"
+	"os"
 	"time"
 )
 
@@ -61,6 +62,7 @@ func (d *DRCOM) DecodeFromBytes(data []byte) error {
 			d.Step = data[5]
 		}
 	}
+
 	return nil
 }
 
@@ -86,7 +88,7 @@ func sniffDRCOM(rawBytes []byte) {
 		return
 	}
 	// for debug
-	log.Printf("content % x\n", dr.Data)
+	//	log.Printf("content % x\n", dr.Data)
 	if dr.Code == DrCodeMisc {
 		switch dr.Type {
 		case 0x10: // response for alive
@@ -105,19 +107,21 @@ func sniffDRCOM(rawBytes []byte) {
 			}
 			if dr.Step == 0x04 { // receive step 4 packet
 				log.Println("send 38 bytes ")
-				sendPacket38()
+				go sendPacket38()
 			}
 		case 0x30: // packet after auth, logon message or token
 			UknCode_1 = dr.Data[24]
 			UknCode_2 = dr.Data[25]
 			UknCode_3 = dr.Data[31]
-		case 0x4d: // file message
-			sendPacket40(1) // send step 1 message
-			log.Println("step1")
+			log.Println("received auth bytes")
 		}
+	} else if dr.Code == DrCodeMessage { // file message
+		sendPacket40(1) // send step 1 message
+		log.Println("step1")
 	}
 }
 
+//TODO not completely cracked yet
 // Step 1 and 3, Drcom Packet type: 0x2800
 // 40字节心跳包发送
 func sendPacket40(step byte) {
@@ -129,11 +133,11 @@ func sendPacket40(step byte) {
 	buf[5] = step
 	copy(buf[6:8], []byte{0xdc, 0x02}) // fixed bytes, unknown
 	// TODO Carry per 1000 step?
-	copy(buf[8:10], []byte{0x00, 0x00})
+	copy(buf[8:10], []byte{0xaa, 0x0d}) // fake bytes
 	// TODO some flux?
-	copy(buf[16:20], []byte{0x00, 0x00, 0x00, 0x00})
-	if step == 3 { // add IP info for Step 3
-		copy(buf[28:32], GConfig.ClientIP[:])
+	copy(buf[16:20], []byte{0x4d, 0x87, 0x40, 0x00}) // fake bytes
+	if step == 3 {                                   // add IP info for Step 3
+		copy(buf[28:32], []byte(GConfig.ClientIP.To4()))
 		putCode2(buf[:]) // copy hash bytes
 	}
 	counter = counter + 1
@@ -143,6 +147,7 @@ func sendPacket40(step byte) {
 // keep alive message request
 // 38字节心跳包发送
 func sendPacket38() {
+	time.Sleep(20 * time.Second) // client to server per 20s
 	var buf [38]byte
 	buf[0] = byte(DrCodeAlive)
 
@@ -152,15 +157,15 @@ func sendPacket38() {
 
 	// [17:20] Zeros
 
-	copy(buf[20:24], "Drco")              // unknown drco
-	copy(buf[24:28], GConfig.ServerIP[:]) // Server IP
+	copy(buf[20:24], "Drco")                         // unknown drco
+	copy(buf[24:28], []byte(GConfig.ServerIP.To4())) // Server IP
 	buf[28] = UknCode_1
 	if UknCode_2 >= 128 {
 		buf[29] = UknCode_2<<1 | 1
 	} else {
 		buf[29] = UknCode_2 << 1
 	}
-	copy(buf[30:34], GConfig.ClientIP[:])
+	copy(buf[30:34], []byte(GConfig.ClientIP.To4()))
 	buf[34] = 0x01
 	if UknCode_3%2 == 0 {
 		buf[35] = UknCode_3 >> 1
@@ -178,15 +183,14 @@ func sendAuthInfo(data []byte) {
 
 	// header
 	buf[0] = 0x07
-	buf[1] = 0x01 // Count what?
-	// ? f4 = 12 + 233  byte(userlength + 233
+	buf[1] = 0x01                      // Count what?
 	copy(buf[2:4], []byte{0xf4, 0x00}) // Info username, hostname
 	buf[4] = 0x03
 	buf[5] = byte(len(GConfig.Username))
 
 	// mac and ip
 	copy(buf[6:12], InterfaceMAC)
-	copy(buf[12:16], GConfig.ClientIP)
+	copy(buf[12:16], []byte(GConfig.ClientIP.To4()))
 
 	// fixed 4 bytes
 	copy(buf[16:20], []byte{0x02, 0x22, 0x00, 0x2a})
@@ -197,13 +201,13 @@ func sendAuthInfo(data []byte) {
 	// crc32, 4 bytes, calculated later
 	// zeros
 
-	// Username, 9 bytes
-	user_name := "201330620" //TODO 长度可变，需要修改
-	copy(buf[32:32+len(user_name)], []byte(user_name))
-	// Server Hostname
-	copy(buf[32+len(user_name):41+len(GConfig.ServerName)],
-		[]byte(GConfig.ServerName))
-
+	// Username and hostname
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	copy(buf[32:76], []byte(GConfig.Username+hostname))
 	copy(buf[76:80], []byte(GConfig.DNS1.To4())) // dns1 4 bytes
 	copy(buf[84:88], []byte(GConfig.DNS2.To4())) // dns2 4 bytes
 
@@ -229,7 +233,7 @@ func sendAuthInfo(data []byte) {
 	udpConn.Write(buf[:])
 }
 
-// 信息包校验码计算 unverified crc32
+// 信息包校验码计算 drcom crc32
 func putCode1(buf []byte) {
 	v5 := len(buf) >> 2
 	var v6 uint32
@@ -244,11 +248,12 @@ func putCode1(buf []byte) {
 	}
 	binary.LittleEndian.PutUint32(buf[24:28], v6*19680126)
 	buf[28] = 0
-	//	log.Println(v6 * 19680126)
+	//	log.Printf("% x\n", v6*19680126)
+	//	log.Printf("% x\n", buf[:])
 	binary.LittleEndian.PutUint32(globalCheck[:], v6*19680126)
 }
 
-// 40字节心跳包校验码计算 has been verified
+// 40字节心跳包校验码计算
 func putCode2(buf []byte) {
 	var tmp, v5 uint16
 	var b_tmp *bytes.Buffer

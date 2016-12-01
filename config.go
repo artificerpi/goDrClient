@@ -12,7 +12,7 @@ import (
 
 const (
 	AppName        string = "gofsnet"
-	Version        string = "0.0.1"
+	Version        string = "0.1.0"
 	ConfigFileName string = "config.ini"
 	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
@@ -39,8 +39,7 @@ type Config struct {
 	InterfaceName string // or interface struct?
 
 	// Server information
-	ServerIP   net.IP
-	ServerName string
+	ServerIP net.IP
 }
 
 //load and check configuration
@@ -80,6 +79,7 @@ func init() {
 		if err != nil {
 			log.Println(err)
 		}
+		fmt.Println("Choose the network interface by entering your option")
 		for i, iface := range ifaces {
 			fmt.Printf("[%d] %s\n", i+1, iface.Name)
 		}
@@ -143,18 +143,12 @@ func init() {
 	// Authenticator Server information
 	serverIpStr, _ := cfg.String("server", "ip") // server ip
 	if serverIpStr == "" {
-		fmt.Print("Server IP: ")
-		fmt.Scan(&serverIpStr)
+		serverIpStr = "202.38.210.131"
 		cfg.AddOption("server", "ip", serverIpStr)
 	}
 	GConfig.ServerIP = net.ParseIP(serverIpStr)
 	if GConfig.ServerIP == nil {
 		log.Println("Illegal server ip ")
-	}
-	GConfig.ServerName, _ = cfg.String("server", "name") // server name
-	if GConfig.ServerName == "" {
-		GConfig.ServerName = "139Yui-miao"
-		cfg.AddOption("server", "name", GConfig.ServerName)
 	}
 	dns1, _ := cfg.String("server", "dns1") // dns1
 	if dns1 == "" {
@@ -174,4 +168,4 @@ func init() {
 	cfg.WriteFile(ConfigFileName, os.FileMode(os.O_WRONLY), AppName+" "+Version+" Configuration")
 }
 
-//TODO add read() write() method for Config
+// TODO setting ip and dns of the network interface
