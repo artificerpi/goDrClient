@@ -60,7 +60,7 @@ func sniff(packetSrc *gopacket.PacketSource) {
 func main() {
 	done = make(chan bool) // exist for supporting runing in background
 
-	//open eth interface and get the handle
+	//open dev interface and get the handle
 	var err error
 	handle, err = pcap.OpenLive(GConfig.InterfaceName, 1024, false, -1*time.Second)
 	//	handle, err = pcap.OpenOffline("fsnet1.pcapng")

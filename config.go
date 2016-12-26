@@ -36,7 +36,7 @@ type Config struct {
 	DNS2     net.IP
 
 	// Device information
-	InterfaceName string // or interface struct?
+	InterfaceName string // dev name to capture packet
 
 	// Server information
 	ServerIP net.IP
@@ -60,7 +60,7 @@ func init() {
 		cfg = config.NewDefault()
 	}
 
-	// load account info
+	// load account info(username, password)
 	GConfig.Username, _ = cfg.String("account", "username")
 	GConfig.Password, _ = cfg.String("account", "password")
 	if GConfig.Username == "" || GConfig.Password == "" {
@@ -102,13 +102,12 @@ func init() {
 		log.Println("null interface")
 		os.Exit(1)
 	}
-	InterfaceMAC = iface.HardwareAddr
+	InterfaceMAC = iface.HardwareAddr // mac address
 	if InterfaceMAC == nil {
 		log.Println("null mac")
 		os.Exit(1)
 	}
-	// set device name
-	switch runtime.GOOS {
+	switch runtime.GOOS { // set device name
 	case "windows": // dev = adapter device name
 		adapterName, _ := getDeviceAdapterName(iface.Index)
 		GConfig.InterfaceName = "\\Device\\NPF_" + adapterName
@@ -130,6 +129,7 @@ func init() {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				GConfig.ClientIP = ipnet.IP
+				break // only get the first one if there exists multiple addrs
 			}
 		}
 	}
