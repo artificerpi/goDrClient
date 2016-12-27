@@ -12,7 +12,7 @@ import (
 
 const (
 	AppName        string = "gofsnet"
-	Version        string = "0.6.0"
+	Version        string = "0.7.0"
 	ConfigFileName string = "config.ini"
 	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
@@ -124,7 +124,6 @@ func init() {
 		log.Fatal("You haven't plug the ethernet")
 		os.Exit(1)
 	}
-
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {

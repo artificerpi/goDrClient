@@ -28,6 +28,9 @@ var (
 	UknCode_3   byte
 	globalCheck [4]byte
 	counter     byte
+
+	kpsercnt uint16
+	flux     uint32
 )
 
 // DRCOM defines the Dr.com 2011 protocol
@@ -79,7 +82,7 @@ func startUDPRequest() {
 	log.Println("start udp request")
 }
 
-//	TODO sniff drcom
+// sniff and handle drcom packet
 func sniffDRCOM(rawBytes []byte) {
 	var dr DRCOM // stores drcom packet
 	err := dr.DecodeFromBytes(rawBytes)
@@ -87,27 +90,30 @@ func sniffDRCOM(rawBytes []byte) {
 		log.Println(err)
 		return
 	}
-	// for debug
-	//	log.Printf("content % x\n", dr.Data)
+
+	//	log.Printf("content % x\n", dr.Data)	// for debug
+
 	if dr.Code == DrCodeMisc {
 		switch dr.Type {
 		case 0x10: // response for alive
 			if dr.AuthType == 0x00 { // request for udp auth
 				log.Println("requested dr login auth")
-				sendAuthInfo(dr.Data[8:12]) //Info username, hostname
+				flux = binary.LittleEndian.Uint32(dr.Data[8:12]) // set flux
+				sendAuthInfo()                                   // drcom auth
 			}
 			if dr.AuthType == 0x01 { // has been authenticated
-				log.Println("requested alive message after step 4")
+				log.Println("keeping alive")
 				sendPacket40(0x01) // send step 1 packet
 			}
 		case 0x28:
 			if dr.Step == 0x02 { //received step 2 packet
-				log.Println("requested step 2 message")
-				sendPacket40(0x03) // send step 3 packet
-				sendPacket38()
+				log.Println("received step 2 message")
+				flux = binary.LittleEndian.Uint32(dr.Data[16:20]) // update flux
+				sendPacket40(0x03)                                // send step 3 packet
 			}
-			if dr.Step == 0x04 { // received step 4 packet TODO
-				log.Println("send 38 bytes ")
+			if dr.Step == 0x04 { //received step 4 packet
+				log.Println("received step 4 message")
+				flux = binary.LittleEndian.Uint32(dr.Data[16:20]) // update flux
 				go sendPacket38()
 			}
 		case 0x30: // packet after auth, logon message or token
@@ -117,12 +123,11 @@ func sniffDRCOM(rawBytes []byte) {
 			log.Println("received auth bytes")
 		}
 	} else if dr.Code == DrCodeMessage { // file message
+		log.Println("start keep alive")
 		sendPacket40(1) // send step 1 message
-		log.Println("step1")
 	}
 }
 
-//TODO not completely cracked yet
 // Step 1 and 3, Drcom Packet type: 0x2800
 // 40字节心跳包发送
 func sendPacket40(step byte) {
@@ -132,17 +137,27 @@ func sendPacket40(step byte) {
 	buf[2] = 0x28 // Type 0x2800
 	buf[4] = 0x0b //fixed byte
 	buf[5] = step
-	copy(buf[6:8], []byte{0xdc, 0x02}) // fixed bytes, unknown
-	// TODO Carry per 1000 step?
-	copy(buf[8:10], []byte{0xaa, 0x0d}) // fake bytes
-	// TODO some flux?
-	copy(buf[16:20], []byte{0x4d, 0x87, 0x40, 0x00}) // fake bytes
-	if step == 3 {                                   // add IP info for Step 3
+	copy(buf[6:8], []byte{0xdc, 0x02}) // fixed bytes, available from response alive message
+
+	binary.LittleEndian.PutUint16(buf[8:10], kpsercnt) // Carry per 1000 step?
+	binary.LittleEndian.PutUint32(buf[16:20], flux)    // flux
+
+	if step == 3 { // add IP info for Step 3
 		copy(buf[28:32], []byte(GConfig.ClientIP.To4()))
 		putCode2(buf[:]) // copy hash bytes
 	}
+	if counter >= 255 { // byte (uint8)
+		counter = 0
+	}
 	counter = counter + 1
+	if kpsercnt >= 65535 { //unint16
+		kpsercnt = 0
+	}
+	if step == 0x03 {
+		kpsercnt = kpsercnt + uint16(flux/1000000)
+	}
 	udpConn.Write(buf[:])
+	log.Printf("Step %d message sent", uint8(step))
 }
 
 // keep alive message request
@@ -152,12 +167,12 @@ func sendPacket38() {
 	var buf [38]byte
 	buf[0] = byte(DrCodeAlive)
 
-	//TODO MD5A
 	copy(buf[1:5], globalCheck[:]) // MD5A
 	copy(buf[5:17], challenge[4:16])
 
 	// [17:20] Zeros
 
+	//Auth Information
 	copy(buf[20:24], "Drco")                         // unknown drco
 	copy(buf[24:28], []byte(GConfig.ServerIP.To4())) // Server IP
 	buf[28] = UknCode_1
@@ -175,11 +190,12 @@ func sendPacket38() {
 	}
 	binary.LittleEndian.PutUint16(buf[36:38], uint16(time.Now().Unix()))
 	udpConn.Write(buf[:])
+	log.Println("38 bytes packet sent")
 }
 
 // send auth info to the authenticator
 // packet 286 bytes: Misc, Info usesrname, host
-func sendAuthInfo(data []byte) {
+func sendAuthInfo() {
 	var buf [244]byte // 244 bytes
 
 	// header
@@ -196,8 +212,8 @@ func sendAuthInfo(data []byte) {
 	// fixed 4 bytes
 	copy(buf[16:20], []byte{0x02, 0x22, 0x00, 0x2a})
 
-	// challenge, 4 bytes copy from auth request
-	copy(buf[20:24], data)
+	// flux, copy from auth request
+	binary.LittleEndian.PutUint32(buf[20:24], flux)
 
 	// crc32, 4 bytes, calculated later
 	// zeros
