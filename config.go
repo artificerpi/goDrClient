@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/larspensjo/config"
@@ -12,7 +13,7 @@ import (
 
 const (
 	AppName        string = "gofsnet"
-	Version        string = "0.7.0"
+	Version        string = "0.7.3"
 	ConfigFileName string = "config.ini"
 	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
@@ -21,6 +22,9 @@ var (
 	GConfig       Config           // gofsnet configuration
 	InterfaceMAC  net.HardwareAddr // mac address of interface
 	BoardCastAddr net.HardwareAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+
+	EnableSysTray   bool
+	EnableAutoStart bool
 )
 
 type Config struct {
@@ -48,11 +52,15 @@ func init() {
 	// load config
 	log.Println("Loading configuration ...")
 
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Fatal(err)
+	}
 	// load configuration from file
 	var cfg *config.Config
-	_, err := os.Stat(ConfigFileName)
+	_, err = os.Stat(dir + "\\" + ConfigFileName)
 	if err == nil {
-		cfg, err = config.ReadDefault(ConfigFileName)
+		cfg, err = config.ReadDefault(dir + "\\" + ConfigFileName)
 		if err != nil {
 			log.Println(err)
 		}
@@ -111,8 +119,10 @@ func init() {
 	case "windows": // dev = adapter device name
 		adapterName, _ := getDeviceAdapterName(iface.Index)
 		GConfig.InterfaceName = "\\Device\\NPF_" + adapterName
+		EnableSysTray = true
 	default:
 		GConfig.InterfaceName = ifaceName
+		EnableSysTray = false
 	}
 
 	// Network information (optional)
@@ -163,8 +173,16 @@ func init() {
 	GConfig.DNS2 = net.ParseIP(dns2)
 	BoardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
+	autoStart, _ := cfg.String("preference", "autostart")
+	if autoStart == "true" { //TODO case not sensitive
+		EnableAutoStart = true
+		fmt.Println("ok")
+	} else {
+		EnableAutoStart = false
+		cfg.AddOption("preference", "autostart", "false")
+	}
 	// write back to configuration file
-	cfg.WriteFile(ConfigFileName, os.FileMode(644), AppName+" "+Version+" Configuration")
+	cfg.WriteFile(dir+"\\"+ConfigFileName, os.FileMode(644), AppName+" "+Version+" Configuration")
 }
 
 // TODO setting ip and dns of the network interface

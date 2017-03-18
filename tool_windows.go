@@ -3,11 +3,47 @@ package main
 // +build windows,!cgo
 import (
 	"errors"
+	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
+	"os/user"
 	"runtime"
 	"syscall"
+	"systraydemo/systray"
 	"unsafe"
+
+	"github.com/golang/glog"
 )
+
+const (
+	TrayMenu1 string = "Reload"
+	TrayMenu2 string = "AutoStart"
+	TrayMenu3 string = "Quit"
+
+	workingIcon string = "working.ico"
+	idleIcon    string = "idle.ico"
+	problemIco  string = "problem.ico"
+
+	bootScript string = "autostart.bat"
+)
+
+var (
+	dataFolder string
+	bootEntry  string
+)
+
+func init() {
+	// Get home dir
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dataFolder = usr.HomeDir + "/AppData/Roaming/" + AppName + "/"
+	bootEntry = usr.HomeDir + "/AppData/Roaming/" + "Microsoft/Windows/Start Menu/Programs/Startup/" + AppName + ".lnk"
+	loadRes()
+}
 
 // get device adapter in windows
 func getDeviceAdapterName(Index int) (string, error) {
@@ -40,4 +76,163 @@ func getDeviceAdapterName(Index int) (string, error) {
 
 	err = errors.New("invalid index as parameter")
 	return "", err
+}
+
+func loadRes() {
+	var isIntact bool = true
+	// check whether files are already there; if not,create t
+	if _, err := os.Stat(dataFolder); os.IsNotExist(err) {
+		// path/to/whatever does not exist
+		log.Println("data folder not exists")
+		isIntact = false
+	}
+	if _, err := os.Stat(dataFolder + workingIcon); os.IsNotExist(err) {
+		// path/to/whatever does not exist
+		log.Println("working icon not exists")
+		isIntact = false
+	}
+	if _, err := os.Stat(dataFolder + idleIcon); os.IsNotExist(err) {
+		// path/to/whatever does not exist
+		log.Println("idle icon not exists")
+		isIntact = false
+	}
+	if _, err := os.Stat(dataFolder + problemIco); os.IsNotExist(err) {
+		// path/to/whatever does not exist
+		log.Println("problem icon not exists")
+		isIntact = false
+	}
+	if _, err := os.Stat(dataFolder + "autostart.bat"); os.IsNotExist(err) {
+		// path/to/whatever does not exist
+		log.Println("autostart script not exists")
+		isIntact = false
+	}
+	if !isIntact {
+		// mkdir -p
+		err := os.MkdirAll(dataFolder, os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+		copyIcons(dataFolder) // generate resource files
+	}
+}
+
+func copyIcons(dstPath string) {
+	working, err := systray.Asset("icons/working.ico")
+	if err != nil {
+		log.Println(err)
+	}
+	idle, err := systray.Asset("icons/idle.ico")
+	if err != nil {
+		log.Println(err)
+	}
+	problem, err := systray.Asset("icons/problem.ico")
+	if err != nil {
+		// Asset was not found.
+		log.Println("Asset not found!")
+	}
+	// convert []byte to image for saving to file
+	//	img, _, _ := image.Decode(bytes.NewReader(imgByte))
+	err = ioutil.WriteFile(dstPath+"working.ico", working, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	err = ioutil.WriteFile(dstPath+"idle.ico", idle, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	err = ioutil.WriteFile(dstPath+"problem.ico", problem, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+
+	cmdScript, err := Asset("autostart.bat")
+	if err != nil {
+		log.Println(err)
+	}
+	err = ioutil.WriteFile(dstPath+bootScript, cmdScript, 0755)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func showSysTray() {
+	tray := systray.New(dataFolder, ".")
+
+	//// Set some test menu items
+	items := make([]systray.CallbackInfo, 0, 10)
+	items = append(items, systray.CallbackInfo{
+		ItemName: TrayMenu1,
+		Callback: func() {
+			//TODO change logo color
+			println("reload")
+			err := tray.Show(idleIcon, "Test systray")
+			reload() //TODO relogin , reload
+			// change logo color
+			err = tray.Show(workingIcon, "Test systray")
+			if err != nil {
+				println(err.Error())
+			}
+
+		},
+	})
+	items = append(items, systray.CallbackInfo{
+		ItemName: TrayMenu2,
+		Callback: func() {
+			// *AutoStart , -AutoStart
+			if EnableAutoStart {
+				EnableAutoStart = false
+				rmBootEntry()
+				items[1].ItemName = TrayMenu2 + " -"
+				log.Println("Disable program autostart")
+			} else {
+				addBootEntry()
+				EnableAutoStart = true
+				items[1].ItemName = TrayMenu2 + " *"
+				log.Println("Enable program autostart")
+			}
+			// update systray
+			tray.ClearSystrayMenuItems()
+			tray.AddSystrayMenuItems(items)
+		},
+	})
+	items = append(items, systray.CallbackInfo{
+		ItemName: "Quit",
+		Callback: func() {
+			println("Exiting...")
+			os.Exit(0)
+		},
+	})
+	tray.AddSystrayMenuItems(items)
+
+	err := tray.Show(workingIcon, AppName)
+	if err != nil {
+		glog.Infoln(err.Error())
+	}
+
+	runtime.LockOSThread()
+	tray.Run()
+	runtime.UnlockOSThread()
+}
+
+func addBootEntry() {
+	// invoke add to boot script
+	os.Setenv("GOFSNET_BOOT_ENTRY", bootEntry)
+	os.Setenv("GOFSNET_TARGET", os.Args[0])
+	err := exec.Command(dataFolder + bootScript).Run()
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func rmBootEntry() {
+	if _, err := os.Stat(bootEntry); os.IsNotExist(err) {
+		log.Println("rm failed: boot entry not exists")
+		return
+	}
+	// rm add to boot script
+	err := os.Remove(bootEntry)
+	if err != nil {
+		log.Println(err)
+	}
+
 }

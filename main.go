@@ -57,6 +57,13 @@ func sniff(packetSrc *gopacket.PacketSource) {
 	done <- true
 }
 
+// reload restarts to login
+func reload() {
+	logoff()
+	time.Sleep(3 * time.Second)
+	startRequest()
+}
+
 func main() {
 	done = make(chan bool) // exist for supporting runing in background
 
@@ -81,9 +88,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	logoff()
-	time.Sleep(3 * time.Second)
-	startRequest()
+	reload()
 
 	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
 	go sniff(packetSrc)
@@ -101,5 +106,8 @@ func main() {
 	}
 	defer udpConn.Close()
 
+	if EnableSysTray {
+		showSysTray()
+	}
 	<-done // Block forever
 }
