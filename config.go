@@ -12,7 +12,7 @@ import (
 
 const (
 	AppName        string = "gofsnet"
-	Version        string = "0.7.0"
+	Version        string = "0.7.4"
 	ConfigFileName string = "config.ini"
 	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
@@ -64,11 +64,8 @@ func init() {
 	GConfig.Username, _ = cfg.String("account", "username")
 	GConfig.Password, _ = cfg.String("account", "password")
 	if GConfig.Username == "" || GConfig.Password == "" {
-		fmt.Print("Username: ")
-		fmt.Scan(&GConfig.Username)
+		GConfig.Username, GConfig.Password = credentials()
 		cfg.AddOption("account", "username", GConfig.Username)
-		fmt.Print("Password: ")
-		fmt.Scan(&GConfig.Password)
 		cfg.AddOption("account", "password", GConfig.Password)
 	}
 
