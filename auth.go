@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	challenge []byte
+	challenge    []byte
+	timeInterval int = 5 // start from 5 minutes
 )
 
 // sends the EAPOL message to Authenticator
@@ -75,7 +76,7 @@ func sendEAP(Id uint8, Type layers.EAPType, TypeData []byte, Code layers.EAPCode
 	}
 }
 
-//// TODO rewrite the sniff of auth part
+// sniff EAP packet for EAP authentication
 func sniffEAP(eapLayer layers.EAP) {
 	switch eapLayer.Code {
 	case layers.EAPCodeRequest: //Request
@@ -86,9 +87,13 @@ func sniffEAP(eapLayer layers.EAP) {
 			go responseMd5Challenge(eapLayer.TypeData[1:17])
 		case layers.EAPTypeNotification: //Notification
 			log.Println("EAP packet error")
+			if timeInterval < 180 {
+				timeInterval *= 2
+				relogin(timeInterval)
+			}
 		}
 	case layers.EAPCodeSuccess: //Success
-		log.Println("EAP auth success")
+		log.Println("Success of EAP auth")
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("EAP auth Failed")
@@ -111,6 +116,14 @@ func logoff() {
 	//send EAPOL-Logoff message to be disconnected from the network.
 	sendEAPOL(0x01, layers.EAPOLTypeLogOff, InterfaceMAC, BoardCastAddr)
 	log.Println("Logoff...")
+}
+
+// relogin for a specify time interval
+func relogin(interval int) {
+	log.Println("Retry login")
+	logoff()
+	time.Sleep(time.Duration(interval) * time.Second)
+	startRequest()
 }
 
 // response Identity
