@@ -14,7 +14,7 @@ import (
 
 const (
 	AppName   string = "gofsnet"
-	Version   string = "0.7.4"
+	Version   string = "0.7.5"
 	Copyright string = "https://github.com/artificerpi/gofsnet"
 )
 
