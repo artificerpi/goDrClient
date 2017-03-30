@@ -94,6 +94,7 @@ func sniffEAP(eapLayer layers.EAP) {
 		}
 	case layers.EAPCodeSuccess: //Success
 		log.Println("Success of EAP auth")
+		timeInterval = 0
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("EAP auth Failed")
