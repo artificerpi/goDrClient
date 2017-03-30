@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net"
 	"os"
@@ -12,9 +13,10 @@ import (
 )
 
 var (
-	udpConn *net.UDPConn
-	handle  *pcap.Handle
-	done    chan bool
+	udpConn    *net.UDPConn
+	handle     *pcap.Handle
+	done       chan bool
+	configFile string
 )
 
 func init() {
@@ -58,6 +60,11 @@ func sniff(packetSrc *gopacket.PacketSource) {
 }
 
 func main() {
+	var configFile string
+	flag.StringVar(&configFile, "c", "config.ini", "specify config file")
+	flag.Parse()
+	loadConfig(configFile) // load configuration file
+
 	done = make(chan bool) // exist for supporting runing in background
 
 	//open dev interface and get the handle

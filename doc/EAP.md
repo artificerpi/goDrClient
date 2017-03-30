@@ -1,3 +1,2 @@
-# EAP协议
+# EAP/EAPOL protocol
 ## EAPOL
-具体见README.md文件
