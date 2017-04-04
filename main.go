@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net"
 	"os"
@@ -12,9 +13,10 @@ import (
 )
 
 var (
-	udpConn *net.UDPConn
-	handle  *pcap.Handle
-	done    chan bool
+	udpConn    *net.UDPConn
+	handle     *pcap.Handle
+	done       chan bool
+	configFile string
 )
 
 func init() {
@@ -65,12 +67,16 @@ func reload() {
 }
 
 func main() {
+	var configFile string
+	flag.StringVar(&configFile, "c", "config.ini", "specify config file")
+	flag.Parse()
+	loadConfig(configFile) // load configuration file
+
 	done = make(chan bool) // exist for supporting runing in background
 
 	//open dev interface and get the handle
 	var err error
 	handle, err = pcap.OpenLive(GConfig.InterfaceName, 1024, false, -1*time.Second)
-	//	handle, err = pcap.OpenOffline("fsnet1.pcapng")
 	defer handle.Close()
 	if err != nil {
 		log.Println(err)
@@ -88,8 +94,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	reload()
-
+	relogin(timeInterval)
 	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
 	go sniff(packetSrc)
 

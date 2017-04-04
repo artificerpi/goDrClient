@@ -1,19 +1,21 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
-	"github.com/larspensjo/config"
+	"github.com/robfig/config"
 )
 
 const (
 	AppName        string = "gofsnet"
-	Version        string = "0.7.3-ui"
+	Version        string = "0.7.6-ui"
 	ConfigFileName string = "config.ini"
 	Copyright      string = "https://github.com/artificerpi/gofsnet"
 )
@@ -46,41 +48,45 @@ type Config struct {
 	ServerIP net.IP
 }
 
-//load and check configuration
-//default setting is for scut dormitory net
-func init() {
-	// load config
+// load configuration from file
+//default setting is for dormitory network of scut
+func loadConfig(configFile string) {
 	log.Println("Loading configuration ...")
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
-	// load configuration from file
 	var cfg *config.Config
-	_, err = os.Stat(dir + "\\" + ConfigFileName)
+	_, err := os.Stat(configFile)
 	if err == nil {
-		cfg, err = config.ReadDefault(dir + "\\" + ConfigFileName)
+		cfg, err = config.ReadDefault(configFile)
 		if err != nil {
 			log.Println(err)
 		}
 	} else {
 		cfg = config.NewDefault()
+		fmt.Println("Configuration file does not exist, create a new one:")
 	}
 
 	// load account info(username, password)
 	GConfig.Username, _ = cfg.String("account", "username")
 	GConfig.Password, _ = cfg.String("account", "password")
 	if GConfig.Username == "" || GConfig.Password == "" {
-		fmt.Print("Username: ")
-		fmt.Scan(&GConfig.Username)
+		GConfig.Username, GConfig.Password = credentials()
 		cfg.AddOption("account", "username", GConfig.Username)
-		fmt.Print("Password: ")
-		fmt.Scan(&GConfig.Password)
-		cfg.AddOption("account", "password", GConfig.Password)
+	}
+	var appPrefix = AppName + "-"
+	if strings.HasPrefix(GConfig.Password, appPrefix) { // decode from masking
+		GConfig.Password = strings.TrimPrefix(GConfig.Password, appPrefix)
+		decodedPass, err := base64.StdEncoding.DecodeString(GConfig.Password)
+		if err != nil {
+			log.Println(err)
+		}
+		GConfig.Password = string(decodedPass)
+	} else {
+		encodedPass := base64.StdEncoding.EncodeToString([]byte(GConfig.Password))
+		cfg.AddOption("account", "password", appPrefix+encodedPass) // pass masking
 	}
 
 	// load device info
+	// TODO optimize the following codes and find the lan device automactially
 	ifaceName, _ := cfg.String("device", "interface")
 	if ifaceName == "" {
 		ifaces, err := listEthDevices()
@@ -99,7 +105,7 @@ func init() {
 			cfg.AddOption("device", "interface", ifaceName)
 		} else {
 			log.Println("Bad selection input for interface!")
-			os.Exit(0)
+			//			os.Exit(0)
 		}
 	}
 	iface, err := net.InterfaceByName(ifaceName)
@@ -131,8 +137,7 @@ func init() {
 		log.Println(err)
 	}
 	if len(addrs) == 0 {
-		log.Fatal("You haven't plug the ethernet")
-		os.Exit(1)
+		log.Fatal("You haven't plugged the network cable yet!")
 	}
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
@@ -142,36 +147,26 @@ func init() {
 			}
 		}
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
-	if GConfig.ClientIP == nil {
-		log.Fatal("Null client ip")
-	}
 
 	// Authenticator Server information
 	serverIpStr, _ := cfg.String("server", "ip") // server ip
+	dns1, _ := cfg.String("server", "dns1")      // dns1
+	dns2, _ := cfg.String("server", "dns2")      // dns2
 	if serverIpStr == "" {
 		serverIpStr = "202.38.210.131"
 		cfg.AddOption("server", "ip", serverIpStr)
 	}
-	GConfig.ServerIP = net.ParseIP(serverIpStr)
-	if GConfig.ServerIP == nil {
-		log.Println("Illegal server ip ")
-	}
-	dns1, _ := cfg.String("server", "dns1") // dns1
 	if dns1 == "" {
 		dns1 = "222.201.130.30"
 		cfg.AddOption("server", "dns1", dns1)
 	}
-	GConfig.DNS1 = net.ParseIP(dns1)
-	dns2, _ := cfg.String("server", "dns2") // dns2
 	if dns2 == "" {
 		dns2 = "222.201.130.33"
 		cfg.AddOption("server", "dns2", dns2)
 	}
+	GConfig.ServerIP = net.ParseIP(serverIpStr)
+	GConfig.DNS1 = net.ParseIP(dns1)
 	GConfig.DNS2 = net.ParseIP(dns2)
-	BoardCastAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 	autoStart, _ := cfg.String("preference", "autostart")
 	if autoStart == "true" { //TODO case not sensitive
@@ -182,7 +177,5 @@ func init() {
 		cfg.AddOption("preference", "autostart", "false")
 	}
 	// write back to configuration file
-	cfg.WriteFile(dir+"\\"+ConfigFileName, os.FileMode(644), AppName+" "+Version+" Configuration")
+	cfg.WriteFile(configFile, os.FileMode(644), AppName+" "+Version+" Configuration")
 }
-
-// TODO setting ip and dns of the network interface
