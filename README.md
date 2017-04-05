@@ -27,7 +27,7 @@ There is also a [wiki about how to build it](https://github.com/artificerpi/gofs
 ```
 
 ### run
- `gofsnet [-c CONFIG-FILE]`
+ `gofsnet`
 
 ## Reference
 * [Understanding 802.1X](https://sites.google.com/site/amitsciscozone/home/switching/802-1x)
