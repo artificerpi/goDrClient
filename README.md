@@ -1,4 +1,4 @@
-# gofsnet 
+# gofsnet (GUI version)
   A simple project to learn IEEE 802.1X protocol and drcom protocol (version: 5.2.x) with golang.
 
 - [中文](https://github.com/artificerpi/gofsnet/blob/master/README-zh.md)
