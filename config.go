@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -169,13 +168,29 @@ func loadConfig(configFile string) {
 	GConfig.DNS2 = net.ParseIP(dns2)
 
 	autoStart, _ := cfg.String("preference", "autostart")
-	if autoStart == "true" { //TODO case not sensitive
+	if strings.ToLower(autoStart) == "true" {
 		EnableAutoStart = true
-		fmt.Println("ok")
 	} else {
 		EnableAutoStart = false
 		cfg.AddOption("preference", "autostart", "false")
 	}
+	// write back to configuration file
+	cfg.WriteFile(configFile, os.FileMode(644), AppName+" "+Version+" Configuration")
+}
+
+func updateConfigOption(configFile string,
+	section string, option string, value string) {
+	log.Println("Updating configuration ...")
+
+	var cfg *config.Config
+	_, err := os.Stat(configFile)
+	if err == nil {
+		cfg, err = config.ReadDefault(configFile)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	cfg.AddOption(section, option, value)
 	// write back to configuration file
 	cfg.WriteFile(configFile, os.FileMode(644), AppName+" "+Version+" Configuration")
 }
