@@ -21,6 +21,11 @@ Currently there is a [problem to decode EAP packet](https://github.com/google/go
 
 There is also a [wiki about how to build it](https://github.com/artificerpi/gofsnet/wiki/Build-this-project).
 
+**To get rid of the cmd window**, instead run
+```
+	go build -ldflags="-H windowsgui"
+```
+
 ### run
  `gofsnet [-c CONFIG-FILE]`
 
