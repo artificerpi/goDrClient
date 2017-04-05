@@ -59,12 +59,6 @@ func sniff(packetSrc *gopacket.PacketSource) {
 	done <- true
 }
 
-// reload restarts to login
-func reload() {
-	logoff()
-	time.Sleep(3 * time.Second)
-	startRequest()
-}
 
 func main() {
 	var configFile string

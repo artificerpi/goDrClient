@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"syscall"
 	"systraydemo/systray"
+	"time"
 	"unsafe"
 
 	"github.com/golang/glog"
@@ -164,31 +165,33 @@ func showSysTray() {
 		ItemName: TrayMenu1,
 		Callback: func() {
 			//TODO change logo color
-			println("reload")
-			err := tray.Show(idleIcon, "Test systray")
-			reload() //TODO relogin , reload
+			err := tray.Show(idleIcon, "gofsnet=>idle")
+			reload()
 			// change logo color
-			err = tray.Show(workingIcon, "Test systray")
+			err = tray.Show(workingIcon, AppName)
 			if err != nil {
 				println(err.Error())
 			}
 
 		},
 	})
+
+	var trayMenu2Show string
+	if EnableAutoStart {
+		trayMenu2Show = TrayMenu2 + " *"
+	} else {
+		trayMenu2Show = TrayMenu2 + " -"
+	}
 	items = append(items, systray.CallbackInfo{
-		ItemName: TrayMenu2,
+		ItemName: trayMenu2Show,
 		Callback: func() {
 			// *AutoStart , -AutoStart
 			if EnableAutoStart {
-				EnableAutoStart = false
 				rmBootEntry()
 				items[1].ItemName = TrayMenu2 + " -"
-				log.Println("Disable program autostart")
 			} else {
 				addBootEntry()
-				EnableAutoStart = true
 				items[1].ItemName = TrayMenu2 + " *"
-				log.Println("Enable program autostart")
 			}
 			// update systray
 			tray.ClearSystrayMenuItems()
@@ -196,7 +199,7 @@ func showSysTray() {
 		},
 	})
 	items = append(items, systray.CallbackInfo{
-		ItemName: "Quit",
+		ItemName: TrayMenu3,
 		Callback: func() {
 			println("Exiting...")
 			os.Exit(0)
@@ -214,6 +217,16 @@ func showSysTray() {
 	runtime.UnlockOSThread()
 }
 
+// reload from config file
+func reload() {
+	loadConfig(ConfigFileName)
+	logoff()
+	time.Sleep(3 * time.Second)
+	startRequest()
+	log.Println("reloading from config file...")
+}
+
+// make program auto start at os boot
 func addBootEntry() {
 	// invoke add to boot script
 	os.Setenv("GOFSNET_BOOT_ENTRY", bootEntry)
@@ -222,6 +235,9 @@ func addBootEntry() {
 	if err != nil {
 		log.Println(err)
 	}
+	updateConfigOption(ConfigFileName, "preference", "autostart", "true")
+	EnableAutoStart = true
+	log.Println("Enable program autostart")
 }
 
 func rmBootEntry() {
@@ -234,5 +250,7 @@ func rmBootEntry() {
 	if err != nil {
 		log.Println(err)
 	}
-
+	updateConfigOption(ConfigFileName, "preference", "autostart", "false")
+	EnableAutoStart = false
+	log.Println("Disable program autostart")
 }

@@ -12,7 +12,7 @@ import (
 
 var (
 	challenge    []byte
-	timeInterval int = 5 // start from 5 minutes
+	timeInterval int = 5 // start from 5 seconds
 )
 
 // sends the EAPOL message to Authenticator
