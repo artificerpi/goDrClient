@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -37,17 +36,9 @@ func setState(value int) {
 	state = value
 }
 
-func loop() {
-	for {
-		if state == -1 {
-			break
-		}
-	}
-}
-
-// sniff EAP packets and send response packets
-func sniff(packetSrc *gopacket.PacketSource) {
-	var ethLayer layers.Ethernet 
+// sniff packets and send response packets
+func sniffPacket(packetSrc *gopacket.PacketSource) {
+	var ethLayer layers.Ethernet
 	var eapLayer layers.EAP
 	var eapolLayer layers.EAPOL
 	var ipLayer layers.IPv4
@@ -78,33 +69,8 @@ func sniff(packetSrc *gopacket.PacketSource) {
 	}
 }
 
+// running instance
 func run() {
-	setState(0)
-	log.Println("restarting..")
-	//open dev interface and get the handle
-	var err error
-	handle, err = pcap.OpenLive(GConfig.InterfaceName, 1024, false, -1*time.Second)
-	defer handle.Close()
-	if err != nil {
-		log.Println(err)
-		os.Exit(0)
-	}
-	if handle == nil {
-		panic("null handle")
-		os.Exit(1)
-	}
-
-	//set filter, filter 802.1X and incoming drcom message
-	var filter string = "ether proto 0x888e || udp src port 61440"
-	err = handle.SetBPFFilter(filter)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	relogin(timeInterval)
-	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
-	go sniff(packetSrc)
-
 	// dial udp connection
 	serverIPStr := GConfig.ServerIP.String()
 	udpServerAddr, err := net.ResolveUDPAddr("udp4", serverIPStr+":61440")
@@ -116,15 +82,28 @@ func run() {
 		log.Println(err)
 	}
 	defer udpConn.Close()
-	for {
-		if state == -1 {
-			break
-		}
+
+	//open dev interface and get the handle
+	handle, err = pcap.OpenLive(GConfig.InterfaceName, 1024, false, -1*time.Second)
+	if err != nil {
+		panic(err)
 	}
+	defer handle.Close()
+
+	//set filter, filter 802.1X and incoming drcom message
+	var filter string = "ether proto 0x888e || udp src port 61440"
+	err = handle.SetBPFFilter(filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	relogin(timeInterval)
+	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
+	sniffPacket(packetSrc) // sniff and block
 }
 
 func cron() {
-	ticker := time.NewTicker(20 * time.Second)
+	ticker := time.NewTicker(15 * time.Second)
 	quit := make(chan struct{})
 	go func() {
 		for {
@@ -139,7 +118,7 @@ func cron() {
 					setState(-1)
 					log.Println("detected network offline")
 					log.Println("restart....................................................")
-					go run()
+					relogin(5)
 				}
 			case <-quit:
 				ticker.Stop()
@@ -158,5 +137,5 @@ func main() {
 	go run()
 	time.Sleep(time.Duration(10) * time.Second)
 	go cron()
-	select {} // block forever
+	<-done
 }

@@ -83,17 +83,15 @@ func sniffEAP(eapLayer layers.EAP) {
 	case layers.EAPCodeRequest: //Request
 		switch eapLayer.Type { // request type
 		case layers.EAPTypeIdentity: //Identity
-			if state == 0 {
-				go responseIdentity(eapLayer.Id)
-			}
+			go responseIdentity(eapLayer.Id)
 		case layers.EAPTypeOTP: //EAP-MD5-CHALLENGE
 			go responseMd5Challenge(eapLayer.TypeData[1:17])
 		case layers.EAPTypeNotification: //Notification
 			log.Println("EAP packet error")
-			if timeInterval < 180 {
-				timeInterval *= 2
-				relogin(timeInterval)
-			}
+			//			if timeInterval < 180 {
+			//				timeInterval *= 2
+			//				relogin(timeInterval)
+			//			}
 		}
 	case layers.EAPCodeSuccess: //Success
 		log.Println("Success of EAP auth")
@@ -104,7 +102,7 @@ func sniffEAP(eapLayer layers.EAP) {
 		log.Println("EAP auth Failed")
 		time.Sleep(time.Duration(5) * time.Second)
 		log.Println("Retry...")
-		go startRequest()
+		startRequest()
 	}
 
 }

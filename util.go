@@ -46,5 +46,5 @@ func credentials() (string, string) {
 }
 
 func checkNetwork() bool {
-	return ping("www.baidu.com", "baidu", 1, LATENCY_PATTERN)
+	return ping(GConfig.ServerIP.String(), 1, LATENCY_PATTERN)
 }
