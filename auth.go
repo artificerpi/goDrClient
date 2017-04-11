@@ -13,6 +13,7 @@ import (
 var (
 	challenge    []byte
 	timeInterval int = 5 // start from 5 minutes
+	state        int = 0
 )
 
 // sends the EAPOL message to Authenticator
@@ -82,7 +83,9 @@ func sniffEAP(eapLayer layers.EAP) {
 	case layers.EAPCodeRequest: //Request
 		switch eapLayer.Type { // request type
 		case layers.EAPTypeIdentity: //Identity
-			go responseIdentity(eapLayer.Id)
+			if state == 0 {
+				go responseIdentity(eapLayer.Id)
+			}
 		case layers.EAPTypeOTP: //EAP-MD5-CHALLENGE
 			go responseMd5Challenge(eapLayer.TypeData[1:17])
 		case layers.EAPTypeNotification: //Notification
@@ -94,11 +97,12 @@ func sniffEAP(eapLayer layers.EAP) {
 		}
 	case layers.EAPCodeSuccess: //Success
 		log.Println("Success of EAP auth")
-		timeInterval = 0
+		timeInterval = 5
+		setState(1)
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("EAP auth Failed")
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Duration(5) * time.Second)
 		log.Println("Retry...")
 		go startRequest()
 	}
@@ -123,7 +127,8 @@ func logoff() {
 func relogin(interval int) {
 	log.Println("Retry login")
 	logoff()
-	time.Sleep(time.Duration(interval) * time.Second)
+	//	time.Sleep(time.Duration(interval) * time.Second)
+	time.Sleep(time.Duration(5) * time.Second)
 	startRequest()
 }
 

@@ -44,3 +44,7 @@ func credentials() (string, string) {
 
 	return strings.TrimSpace(username), strings.TrimSpace(password)
 }
+
+func checkNetwork() bool {
+	return ping("www.baidu.com", "baidu", 1, LATENCY_PATTERN)
+}
