@@ -38,7 +38,7 @@ func credentials() (string, string) {
 	fmt.Print("Enter Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err == nil {
-		fmt.Println("\nPassword typed: " + string(bytePassword))
+		fmt.Println("\nPassword typed: " + string(bytePassword)) //TODO
 	}
 	password := string(bytePassword)
 

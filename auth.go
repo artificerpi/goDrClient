@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -14,7 +15,18 @@ var (
 	challenge    []byte
 	timeInterval int = 5 // start from 5 minutes
 	state        int = 0
+	lock         sync.Mutex
 )
+
+func setState(value int) {
+	if value > 1 || value < -1 {
+		log.Println("improper value")
+		return
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	state = value
+}
 
 // sends the EAPOL message to Authenticator
 func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
