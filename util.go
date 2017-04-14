@@ -46,9 +46,9 @@ func credentials() (string, string) {
 }
 
 func checkOnline() {
-	if ping(GConfig.ServerIP.String(), 2) {
+	if ping("8.8.8.8", 1) {
 		log.Println("Checking network:", "ok.")
-	} else if ping("114.114.114.114", 3) || ping("8.8.8.8", 4) {
+	} else if ping("114.114.114.114", 2) || ping(GConfig.DNS1.String(), 3) {
 		log.Println("Checking network:", "ok.")
 	} else {
 		log.Println("Detected network offline, restarting...")
