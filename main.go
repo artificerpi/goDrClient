@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kardianos/service"
+	"github.com/marcsauter/single"
 )
 
 var done chan bool = make(chan bool) // exist for supporting runing in background
@@ -71,6 +72,11 @@ func (p *program) Stop(s service.Service) error {
 }
 
 func main() {
+	// only allow one running program instance
+	instance := single.New(AppName)
+	instance.Lock()
+	defer instance.Unlock()
+
 	var configFile string
 	flag.StringVar(&configFile, "c", "config.ini", "specify config file")
 	svcFlag := flag.String("service", "", "Control the system service.")

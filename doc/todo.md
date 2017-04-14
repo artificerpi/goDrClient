@@ -5,4 +5,4 @@
 - [x] Add configuration for write packets
 - [x] Add logging to file support
 - [ ] Stop sniffing drcom packet when eapol auth failed
-- [ ] Only allow one running instance in the os
+- [x] Only allow one running instance in the os
