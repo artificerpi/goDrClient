@@ -55,6 +55,7 @@ func checkOnline() {
 		err := handle.WritePacketData([]byte(AppName))
 		if err != nil {
 			log.Println("Detected network device error", err)
+			quit <- true
 			go sniff()
 		} else {
 			go relogin(3)

@@ -17,6 +17,7 @@ var (
 	udpConn      *net.UDPConn
 	handle       *pcap.Handle
 	capturedFile *os.File
+	quit         chan bool = make(chan bool)
 )
 
 // sniff packets and handle them
@@ -71,6 +72,9 @@ func sniff() {
 	// sniff packets and block the goroutine
 	for {
 		select {
+		case <-quit:
+			log.Println("A goroutine has quit.")
+			return
 		case packet := <-packetSrc.Packets():
 			// needed packets: eapol, eap, udp
 			parser := gopacket.NewDecodingLayerParser(
@@ -102,7 +106,7 @@ func sniff() {
 			if w != nil {
 				w.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
 			}
-		case <-time.After(time.Second * 45):
+		case <-time.After(time.Second * 30):
 			log.Println("Timeout for sniffing packet source")
 			return
 		}
