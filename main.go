@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 	"time"
 
 	"github.com/kardianos/service"
@@ -11,11 +12,10 @@ import (
 var done chan bool = make(chan bool) // exist for supporting runing in background
 
 func init() {
-	log.Println(AppName, Version, "-- go version Drcom client by artificerpi")
-	log.Println("Project url:", Project)
+	log.Println(AppName, Version, "-- golang version DRCOM client by artificerpi")
+	log.Println("Project URL: ", "https://github.com/artificerpi/gofsnet")
+	log.Println("Program is executing...")
 }
-
-var logger service.Logger
 
 // Program structures.
 //  Define Start and Stop methods.
@@ -25,9 +25,9 @@ type program struct {
 
 func (p *program) Start(s service.Service) error {
 	if service.Interactive() {
-		logger.Info("Running in terminal.")
+		log.Println("Running in terminal.")
 	} else {
-		logger.Info("Running under service manager.")
+		log.Println("Running under service manager.")
 	}
 	p.exit = make(chan struct{})
 
@@ -36,22 +36,21 @@ func (p *program) Start(s service.Service) error {
 	return nil
 }
 func (p *program) run() error {
-	logger.Infof("I'm running %v.", service.Platform())
+	log.Println("I'm running at %v.", service.Platform())
 	ticker := time.NewTicker(20 * time.Second)
-	go run()
+	go sniff()
 	for {
 		select {
 		case tm := <-ticker.C:
-			logger.Infof("Still running at %v...", tm)
+			log.Printf("Still running at %v...", tm)
 			if checkNetwork() {
-				log.Println("ok")
+				log.Println("Network is ok.")
 			} else {
-				setState(-1)
-				log.Println("detected network offline, restarting...........")
+				log.Println("Detected network offline, restarting...")
 				err := handle.WritePacketData([]byte(AppName)) // test network device
 				if err != nil {
-					log.Println("detected error", err)
-					go run()
+					log.Println("Detected network device error", err)
+					go sniff()
 				} else {
 					relogin(5)
 				}
@@ -66,7 +65,7 @@ func (p *program) run() error {
 
 func (p *program) Stop(s service.Service) error {
 	// Any work in Stop should be quick, usually a few seconds at most.
-	logger.Info("I'm Stopping!")
+	log.Println("I'm Stopping!")
 	close(p.exit)
 	return nil
 }
@@ -76,12 +75,27 @@ func main() {
 	flag.StringVar(&configFile, "c", "config.ini", "specify config file")
 	svcFlag := flag.String("service", "", "Control the system service.")
 	flag.Parse()
+
 	loadConfig(configFile) // load configuration file
+	if GConfig.EnableFileLog {
+		f, err := os.OpenFile(AppName+".log", os.O_RDWR|os.O_CREATE|os.O_APPEND|os.O_TRUNC, 0644) //TODO
+		if err != nil {
+			log.Fatalf("Error while opening file: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+	}
+	// if capture packets enabled
+	// create only one pcap file of program's startup for each time
+	if GConfig.EnableCapture && capturedFile == nil {
+		capturedFile, _ = os.Create(AppName + time.Now().Format(time.RFC3339) + ".pcap")
+		defer capturedFile.Close()
+	}
 
 	svcConfig := &service.Config{
-		Name:        "GoServiceExampleLogging",
-		DisplayName: "Go Service Example for Logging",
-		Description: "This is an example Go service that outputs log messages.",
+		Name:        "GofsnetService",
+		DisplayName: "gofsnet service program",
+		Description: "This is the gofsnet service that works as a drcom client.",
 	}
 
 	prg := &program{}
@@ -89,21 +103,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	errs := make(chan error, 5)
-	logger, err = s.Logger(errs)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	go func() {
-		for {
-			err := <-errs
-			if err != nil {
-				log.Print(err)
-			}
-		}
-	}()
-
 	if len(*svcFlag) != 0 {
 		err := service.Control(s, *svcFlag)
 		if err != nil {
@@ -112,8 +111,9 @@ func main() {
 		}
 		return
 	}
+
 	err = s.Run()
 	if err != nil {
-		logger.Error(err)
+		log.Fatal(err)
 	}
 }

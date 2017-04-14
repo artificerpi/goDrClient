@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -12,21 +11,9 @@ import (
 )
 
 var (
-	challenge    []byte
-	timeInterval int = 5 // start from 5 minutes
-	state        int = 0
-	lock         sync.Mutex
+	challenge     []byte
+	BoardCastAddr net.HardwareAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 )
-
-func setState(value int) {
-	if value > 1 || value < -1 {
-		log.Println("improper value")
-		return
-	}
-	lock.Lock()
-	defer lock.Unlock()
-	state = value
-}
 
 // sends the EAPOL message to Authenticator
 func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
@@ -100,15 +87,10 @@ func sniffEAP(eapLayer layers.EAP) {
 			go responseMd5Challenge(eapLayer.TypeData[1:17])
 		case layers.EAPTypeNotification: //Notification
 			log.Println("EAP packet error")
-			//			if timeInterval < 180 {
-			//				timeInterval *= 2
-			//				relogin(timeInterval)
-			//			}
+			// vital errors
 		}
 	case layers.EAPCodeSuccess: //Success
 		log.Println("Success of EAP auth")
-		timeInterval = 5
-		setState(1)
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("EAP auth Failed")

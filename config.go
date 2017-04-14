@@ -14,14 +14,12 @@ import (
 
 const (
 	AppName string = "gofsnet"
-	Version string = "0.7.7"
-	Project string = "https://github.com/artificerpi/gofsnet"
+	Version string = "0.7.8"
 )
 
 var (
-	GConfig       Config           // gofsnet configuration
-	InterfaceMAC  net.HardwareAddr // mac address of interface
-	BoardCastAddr net.HardwareAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	GConfig      Config           // gofsnet configuration
+	InterfaceMAC net.HardwareAddr // mac address of interface
 )
 
 type Config struct {
@@ -41,13 +39,15 @@ type Config struct {
 
 	// Server information
 	ServerIP net.IP
+
+	// preference
+	EnableCapture bool
+	EnableFileLog bool
 }
 
 // load configuration from file
 //default setting is for dormitory network of scut
 func loadConfig(configFile string) {
-	log.Println("Loading configuration ...")
-
 	var cfg *config.Config
 	_, err := os.Stat(configFile)
 	if err == nil {
@@ -161,6 +161,21 @@ func loadConfig(configFile string) {
 	GConfig.DNS1 = net.ParseIP(dns1)
 	GConfig.DNS2 = net.ParseIP(dns2)
 
+	capturePackets, _ := cfg.String("preference", "capture_packets")
+	fileLog, _ := cfg.String("preference", "log_to_file")
+	if capturePackets == "true" {
+		GConfig.EnableCapture = true
+	} else {
+		GConfig.EnableCapture = false
+		cfg.AddOption("preference", "capture_packets", "false")
+	}
+	if fileLog == "true" {
+		GConfig.EnableFileLog = true
+	} else {
+		GConfig.EnableFileLog = false
+		cfg.AddOption("preference", "log_to_file", "false")
+	}
+
 	// write back to configuration file
-	cfg.WriteFile(configFile, os.FileMode(644), AppName+" "+Version+" Configuration")
+	cfg.WriteFile(configFile, os.FileMode(0666), AppName+" "+Version+" Configuration")
 }

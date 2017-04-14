@@ -1,6 +1,8 @@
 # TODO LIST
-- [ ] Document this project.
+- [ ] Document this project.   -- still working
 - [x] Add GUI support for windows user.
 - [ ] Refactor this project to make it more robust
-- [ ] Add configuration for write packets
-- [ ] Add logging to file support
+- [x] Add configuration for write packets
+- [x] Add logging to file support
+- [ ] Stop sniffing drcom packet when eapol auth failed
+- [ ] Only allow one running instance in the os

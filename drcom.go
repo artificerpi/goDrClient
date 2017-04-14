@@ -78,7 +78,10 @@ func startUDPRequest() {
 	copy(dr.Data[2:4], []byte{0x08, 0x00}) // Type
 	copy(dr.Data[4:], []byte{0x01, 0x00, 0x00, 0x00})
 
-	udpConn.Write(dr.Data) // write raw bytes
+	_, err := udpConn.Write(dr.Data) // write raw bytes
+	if err != nil {
+		log.Println(err)
+	}
 	log.Println("start udp request")
 }
 
@@ -163,9 +166,7 @@ func sendPacket40(step byte) {
 // keep alive message request
 // 38字节心跳包发送
 func sendPacket38() {
-	if state != -1 {
-		time.Sleep(20 * time.Second) // client to server per 20s
-	}
+	time.Sleep(20 * time.Second) // TODO  verify: client to server per 20s
 	var buf [38]byte
 	buf[0] = byte(DrCodeAlive)
 
