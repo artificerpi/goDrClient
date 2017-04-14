@@ -89,9 +89,13 @@ func sniff() {
 			for _, layerType := range foundLayerTypes {
 				switch layerType {
 				case layers.LayerTypeUDP: // drcom packets are more frequent
-					sniffDRCOM(udpLayer.Payload)
+					if isOnline {
+						sniffDRCOM(udpLayer.Payload)
+					}
 				case layers.LayerTypeEAP:
-					sniffEAP(eapLayer)
+					if !isOnline {
+						sniffEAP(eapLayer)
+					}
 				}
 			}
 
@@ -99,7 +103,7 @@ func sniff() {
 				w.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
 			}
 		case <-time.After(time.Second * 45):
-			log.Println("Timeout for sniffing packet src")
+			log.Println("Timeout for sniffing packet source")
 			return
 		}
 	}

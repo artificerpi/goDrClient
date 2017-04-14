@@ -166,6 +166,9 @@ func sendPacket40(step byte) {
 // keep alive message request
 // 38字节心跳包发送
 func sendPacket38() {
+	if !isOnline {
+		return
+	}
 	time.Sleep(20 * time.Second) // TODO  verify: client to server per 20s
 	var buf [38]byte
 	buf[0] = byte(DrCodeAlive)

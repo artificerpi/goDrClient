@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -13,7 +14,15 @@ import (
 var (
 	challenge     []byte
 	BoardCastAddr net.HardwareAddr = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	isOnline      bool             = false
+	mutex                          = &sync.Mutex{}
 )
+
+func setOnline(v bool) {
+	mutex.Lock()
+	isOnline = v
+	mutex.Unlock()
+}
 
 // sends the EAPOL message to Authenticator
 func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
@@ -91,6 +100,7 @@ func sniffEAP(eapLayer layers.EAP) {
 		}
 	case layers.EAPCodeSuccess: //Success
 		log.Println("Success of EAP auth")
+		setOnline(true)
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("EAP auth Failed")
@@ -117,9 +127,7 @@ func logoff() {
 
 // relogin for a specify time interval
 func relogin(interval int) {
-	log.Println("Retry login")
 	logoff()
-	//	time.Sleep(time.Duration(interval) * time.Second)
 	time.Sleep(time.Duration(5) * time.Second)
 	startRequest()
 }

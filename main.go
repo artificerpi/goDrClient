@@ -37,7 +37,7 @@ func (p *program) Start(s service.Service) error {
 	return nil
 }
 func (p *program) run() error {
-	log.Println("I'm running at %v.", service.Platform())
+	log.Printf("I'm running at %s.", service.Platform())
 	ticker := time.NewTicker(20 * time.Second)
 	go sniff()
 	for {
@@ -48,7 +48,9 @@ func (p *program) run() error {
 				log.Println("Network is ok.")
 			} else {
 				log.Println("Detected network offline, restarting...")
-				err := handle.WritePacketData([]byte(AppName)) // test network device
+				setOnline(false)
+				// check error of network device
+				err := handle.WritePacketData([]byte(AppName))
 				if err != nil {
 					log.Println("Detected network device error", err)
 					go sniff()
