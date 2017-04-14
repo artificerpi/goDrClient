@@ -108,7 +108,12 @@ func sniff() {
 			}
 		case <-time.After(time.Second * 30):
 			log.Println("Timeout for sniffing packet source")
-			return
+			if isOnline {
+				sendPacket40(0x01) 
+			} else {
+				go sniff()
+				return // close this goroutine
+			}
 		}
 	}
 }

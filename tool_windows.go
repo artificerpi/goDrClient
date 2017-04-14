@@ -4,7 +4,9 @@ package main
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"runtime"
+	"strconv"
 	"syscall"
 	"unsafe"
 )
@@ -40,4 +42,13 @@ func getDeviceAdapterName(Index int) (string, error) {
 
 	err = errors.New("invalid index as parameter")
 	return "", err
+}
+
+func ping(address string, timeoutSec int) bool {
+	// -n 1 --> send one packet/echo -w <miliseconds> wait up to this many ms for
+	// each reply (only one reply in this case...).  Note the * 1000 since we're
+	// configured with seconds and this arg takes miliseconds.
+	cmd := exec.Command("ping", "-n", "1", "-w", strconv.Itoa(timeoutSec*1000), address)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return parseResults(cmd, address, LATENCY_PATTERN)
 }

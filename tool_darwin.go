@@ -1,6 +1,5 @@
 package main
 
-// +build linux,386 darwin,!cgo
 import (
 	"errors"
 	"os/exec"
@@ -14,7 +13,8 @@ func getDeviceAdapterName(Index int) (string, error) {
 }
 
 func ping(address string, timeoutSec int) bool {
-	// -c 1 --> send one packet -w <sec> deadline/timeout in seconds before giving up
-	cmd := exec.Command("ping", "-c", "1", "-w", strconv.Itoa(timeoutSec), address)
+	// -c 1 --> send one packet -t <sec> timeout in sec before ping exits
+	// regardless of packets received
+	cmd := exec.Command("ping", "-c", "1", "-t", strconv.Itoa(timeoutSec), address)
 	return parseResults(cmd, address, LATENCY_PATTERN)
 }

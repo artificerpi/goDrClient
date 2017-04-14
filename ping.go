@@ -4,8 +4,6 @@ import (
 	"log"
 	"os/exec"
 	"regexp"
-	"runtime"
-	"strconv"
 	"strings"
 )
 
@@ -28,39 +26,4 @@ func parseResults(cmd *exec.Cmd, address string, pattern *regexp.Regexp) bool {
 	// guess we never found a ping latency in our response data
 	log.Printf("event='missed_ping_latency' addresss='%s'\n", address)
 	return false
-}
-
-func pingLinux(address string, timeoutSec int, pattern *regexp.Regexp) bool {
-	// -c 1 --> send one packet -w <sec> deadline/timeout in seconds before giving up
-	cmd := exec.Command("ping", "-c", "1", "-w", strconv.Itoa(timeoutSec), address)
-	return parseResults(cmd, address, pattern)
-}
-
-func pingMac(address string, timeoutSec int, pattern *regexp.Regexp) bool {
-	// -c 1 --> send one packet -t <sec> timeout in sec before ping exits
-	// regardless of packets received
-	cmd := exec.Command("ping", "-c", "1", "-t", strconv.Itoa(timeoutSec), address)
-	return parseResults(cmd, address, pattern)
-}
-
-func pingWindows(address string, timeoutSec int, pattern *regexp.Regexp) bool {
-	// -n 1 --> send one packet/echo -w <miliseconds> wait up to this many ms for
-	// each reply (only one reply in this case...).  Note the * 1000 since we're
-	// configured with seconds and this arg takes miliseconds.
-	cmd := exec.Command("ping", "-n", "1", "-w", strconv.Itoa(timeoutSec*1000), address)
-	return parseResults(cmd, address, pattern)
-}
-
-func ping(address string, timeoutSec int) bool {
-	switch os := runtime.GOOS; os {
-	case "darwin":
-		return pingMac(address, timeoutSec, LATENCY_PATTERN)
-	case "linux":
-		return pingLinux(address, timeoutSec, LATENCY_PATTERN)
-	case "windows":
-		return pingWindows(address, timeoutSec, LATENCY_PATTERN)
-	default:
-		log.Fatalf("Unsupported OS type: %s.  Can't establish ping cmd args.\n", os)
-		return false
-	}
 }

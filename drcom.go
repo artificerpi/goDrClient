@@ -194,7 +194,7 @@ func sendPacket38() {
 	if !isOnline {
 		return
 	}
-	time.Sleep(20 * time.Second) // client to server per 20s
+	time.Sleep(10 * time.Second) // client to server per 20s
 
 	var buf [38]byte
 	buf[0] = byte(DrCodeAlive)
