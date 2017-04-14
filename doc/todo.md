@@ -6,4 +6,4 @@
 - [x] Add logging to file support
 - [x] Stop sniffing drcom packet when eapol auth failed
 - [x] Only allow one running instance in the os
-- [ ] Optimize for checking network and try to solve it
+- [x] Optimize for checking network and try to solve it

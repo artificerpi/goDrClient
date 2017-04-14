@@ -45,7 +45,7 @@ func sniff() {
 		log.Fatal(err)
 	}
 
-	go relogin(5) // start login
+	go relogin(2) // start login
 	// dial UDP connection
 	serverIPStr := GConfig.ServerIP.String()
 	udpServerAddr, err := net.ResolveUDPAddr("udp4", serverIPStr+":61440")

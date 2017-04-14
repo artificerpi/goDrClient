@@ -45,6 +45,19 @@ func credentials() (string, string) {
 	return strings.TrimSpace(username), strings.TrimSpace(password)
 }
 
-func checkNetwork() bool {
-	return ping(GConfig.ServerIP.String(), 1, LATENCY_PATTERN)
+func checkOnline() {
+	if ping(GConfig.ServerIP.String(), 1, LATENCY_PATTERN) {
+		log.Println("Checking network:", "ok.")
+	} else {
+		log.Println("Detected network offline, restarting...")
+		setOnline(false)
+		// check error of network device
+		err := handle.WritePacketData([]byte(AppName))
+		if err != nil {
+			log.Println("Detected network device error", err)
+			go sniff()
+		} else {
+			go relogin(3)
+		}
+	}
 }

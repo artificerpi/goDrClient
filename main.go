@@ -38,27 +38,12 @@ func (p *program) Start(s service.Service) error {
 }
 func (p *program) run() error {
 	log.Printf("I'm running at %s.", service.Platform())
-	ticker := time.NewTicker(20 * time.Second)
+	ticker := time.NewTicker(25 * time.Second)
 	go sniff()
 	for {
 		select {
-		case tm := <-ticker.C:
-			log.Printf("Still running at %v...", tm)
-			if checkNetwork() {
-				log.Println("Network is ok.")
-			} else {
-				log.Println("Detected network offline, restarting...")
-				setOnline(false)
-				// check error of network device
-				err := handle.WritePacketData([]byte(AppName))
-				if err != nil {
-					log.Println("Detected network device error", err)
-					go sniff()
-				} else {
-					relogin(5)
-				}
-
-			}
+		case <-ticker.C:
+			checkOnline()
 		case <-p.exit:
 			ticker.Stop()
 			return nil

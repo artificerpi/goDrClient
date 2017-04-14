@@ -104,9 +104,11 @@ func sniffEAP(eapLayer layers.EAP) {
 		startUDPRequest() // start keep-alive
 	case layers.EAPCodeFailure: //Failure
 		log.Println("EAP auth Failed")
-		time.Sleep(time.Duration(5) * time.Second)
-		log.Println("Retry...")
-		startRequest()
+		time.Sleep(time.Duration(3) * time.Second)
+		if !isOnline {
+			log.Println("Retry EAP auth...")
+			startRequest()
+		}
 	}
 
 }
@@ -128,7 +130,7 @@ func logoff() {
 // relogin for a specify time interval
 func relogin(interval int) {
 	logoff()
-	time.Sleep(time.Duration(5) * time.Second)
+	time.Sleep(time.Duration(interval) * time.Second)
 	startRequest()
 }
 

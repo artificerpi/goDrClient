@@ -29,8 +29,9 @@ var (
 	globalCheck [4]byte
 	counter     byte
 
-	kpsercnt uint16
-	flux     uint32
+	kpsercnt    uint16
+	flux        uint32
+	lastMsgType int // used to ignore replicate packets
 )
 
 // DRCOM defines the Dr.com 2011 protocol
@@ -100,34 +101,58 @@ func sniffDRCOM(rawBytes []byte) {
 		switch dr.Type {
 		case 0x10: // response for alive
 			if dr.AuthType == 0x00 { // request for udp auth
+				if lastMsgType == 1 {
+					return
+				}
 				log.Println("requested dr login auth")
 				flux = binary.LittleEndian.Uint32(dr.Data[8:12]) // set flux
 				sendAuthInfo()                                   // drcom auth
+				lastMsgType = 1
 			}
 			if dr.AuthType == 0x01 { // has been authenticated
+				if lastMsgType == 2 {
+					return
+				}
 				log.Println("keeping alive")
 				sendPacket40(0x01) // send step 1 packet
+				lastMsgType = 2
 			}
 		case 0x28:
 			if dr.Step == 0x02 { //received step 2 packet
+				if lastMsgType == 3 {
+					return
+				}
 				log.Println("received step 2 message")
 				flux = binary.LittleEndian.Uint32(dr.Data[16:20]) // update flux
 				sendPacket40(0x03)                                // send step 3 packet
+				lastMsgType = 3
 			}
 			if dr.Step == 0x04 { //received step 4 packet
+				if lastMsgType == 4 {
+					return
+				}
 				log.Println("received step 4 message")
 				flux = binary.LittleEndian.Uint32(dr.Data[16:20]) // update flux
 				go sendPacket38()
+				lastMsgType = 4
 			}
 		case 0x30: // packet after auth, logon message or token
+			if lastMsgType == 5 {
+				return
+			}
 			UknCode_1 = dr.Data[24]
 			UknCode_2 = dr.Data[25]
 			UknCode_3 = dr.Data[31]
 			log.Println("received auth bytes")
+			lastMsgType = 5
 		}
 	} else if dr.Code == DrCodeMessage { // file message
+		if lastMsgType == 6 {
+			return
+		}
 		log.Println("start keep alive")
 		sendPacket40(1) // send step 1 message
+		lastMsgType = 6
 	}
 }
 
@@ -169,7 +194,8 @@ func sendPacket38() {
 	if !isOnline {
 		return
 	}
-	time.Sleep(20 * time.Second) // TODO  verify: client to server per 20s
+	time.Sleep(20 * time.Second) // client to server per 20s
+
 	var buf [38]byte
 	buf[0] = byte(DrCodeAlive)
 
