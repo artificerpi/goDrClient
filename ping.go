@@ -51,14 +51,14 @@ func pingWindows(address string, timeoutSec int, pattern *regexp.Regexp) bool {
 	return parseResults(cmd, address, pattern)
 }
 
-func ping(address string, timeoutSec int, pattern *regexp.Regexp) bool {
+func ping(address string, timeoutSec int) bool {
 	switch os := runtime.GOOS; os {
 	case "darwin":
-		return pingMac(address, timeoutSec, pattern)
+		return pingMac(address, timeoutSec, LATENCY_PATTERN)
 	case "linux":
-		return pingLinux(address, timeoutSec, pattern)
+		return pingLinux(address, timeoutSec, LATENCY_PATTERN)
 	case "windows":
-		return pingWindows(address, timeoutSec, pattern)
+		return pingWindows(address, timeoutSec, LATENCY_PATTERN)
 	default:
 		log.Fatalf("Unsupported OS type: %s.  Can't establish ping cmd args.\n", os)
 		return false
