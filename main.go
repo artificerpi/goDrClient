@@ -38,7 +38,7 @@ func (p *program) Start(s service.Service) error {
 }
 func (p *program) run() error {
 	log.Printf("I'm running at %s.", service.Platform())
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(60 * time.Second)
 	go sniff()
 	for {
 		select {
