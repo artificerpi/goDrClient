@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -46,9 +47,12 @@ func credentials() (string, string) {
 }
 
 func checkOnline() {
-	if ping("8.8.8.8", 1) {
+	//	http://root-servers.org/ good ip for ping test
+	addrs := [6]string{"8.8.8.8", "4.2.2.1", "4.2.2.2",
+		"208.67.222.123", "208.67.220.123", "198.41.0.4"}
+	if ping(addrs[rand.Intn(6)], 1) {
 		log.Println("Checking network:", "ok.")
-	} else if ping("114.114.114.114", 2) || ping(GConfig.DNS1.String(), 3) {
+	} else if ping(GConfig.DNS1.String(), 3) {
 		log.Println("Checking network:", "ok.")
 	} else {
 		log.Println("Detected network offline, restarting...")

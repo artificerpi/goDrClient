@@ -106,13 +106,13 @@ func sniff() {
 			if w != nil {
 				w.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
 			}
-		case <-time.After(time.Second * 30):
+		case <-time.After(time.Millisecond * 14500): // timeout within 15s
 			log.Println("Timeout for sniffing packet source")
 			if isOnline {
-				sendPacket40(0x01) 
+				sendPacket40(0x01)
 			} else {
-				go sniff()
-				return // close this goroutine
+				setOnline(false)
+				startRequest() // restart eap auth
 			}
 		}
 	}
