@@ -97,9 +97,7 @@ func sniff() {
 						sniffDRCOM(udpLayer.Payload)
 					}
 				case layers.LayerTypeEAP:
-					if !isOnline {
 						sniffEAP(eapLayer)
-					}
 				}
 			}
 
