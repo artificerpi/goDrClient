@@ -14,7 +14,7 @@ import (
 
 const (
 	AppName string = "gofsnet"
-	Version string = "0.8.2"
+	Version string = "0.8.3"
 )
 
 var (

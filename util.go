@@ -50,11 +50,11 @@ func checkOnline() {
 	//	http://root-servers.org/ good ip for ping test
 	addrs := [6]string{"8.8.8.8", "4.2.2.1", "4.2.2.2",
 		"208.67.222.123", "208.67.220.123", "198.41.0.4"}
-	if ping(addrs[rand.Intn(6)], 1) {
+	if ping(addrs[rand.Intn(6)], 1) ||ping(GConfig.DNS1.String(), 3) {
 		log.Println("Checking network:", "ok.")
-	} else if ping(GConfig.DNS1.String(), 3) {
+	} else if checkNTP(){
 		log.Println("Checking network:", "ok.")
-	} else {
+	}else {
 		log.Println("Detected network offline, restarting...")
 		setOnline(false)
 		// check error of network device
