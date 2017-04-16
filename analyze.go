@@ -66,8 +66,6 @@ func sniff() {
 		eapolLayer layers.EAPOL
 		eapLayer   layers.EAP
 		udpLayer   layers.UDP
-
-		PacketTimeout int = 60
 	)
 	packetSrc := gopacket.NewPacketSource(handle, handle.LinkType())
 
@@ -97,7 +95,6 @@ func sniff() {
 				case layers.LayerTypeUDP: // drcom packets are more frequent
 					if isOnline {
 						sniffDRCOM(udpLayer.Payload)
-						PacketTimeout = 15
 					}
 				case layers.LayerTypeEAP:
 					if !isOnline {
@@ -109,10 +106,9 @@ func sniff() {
 			if w != nil {
 				w.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
 			}
-		case <-time.After(time.Second * time.Duration(PacketTimeout)): // timeout within 15s
+		case <-time.After(time.Second * 30): // timeout within 30s
 			log.Println("Timeout for sniffing packet source")
 			setOnline(false)
-			PacketTimeout = 60
 			startRequest() // restart eap auth
 		}
 	}

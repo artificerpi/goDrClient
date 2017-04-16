@@ -25,7 +25,7 @@ func setOnline(v bool) {
 }
 
 // sends the EAPOL message to Authenticator
-func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) {
+func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, DstMAC net.HardwareAddr) error {
 	buffer := gopacket.NewSerializeBuffer()
 	options := gopacket.SerializeOptions{}
 	ethernetLayer := &layers.Ethernet{
@@ -46,8 +46,9 @@ func sendEAPOL(Version byte, Type layers.EAPOLType, SrcMAC net.HardwareAddr, Dst
 	// write packet
 	err := handle.WritePacketData(buffer.Bytes())
 	if err != nil {
-		log.Println(err)
+		return err
 	}
+	return nil
 }
 
 // sends the EAP message to Authenticator
@@ -114,10 +115,15 @@ func sniffEAP(eapLayer layers.EAP) {
 }
 
 // start request to the Authenticator
-func startRequest() {
+func startRequest() bool {
 	log.Println("Start request to Authenticator...")
 	// sending the EAPOL-Start message to a multicast group
-	sendEAPOL(0x01, layers.EAPOLTypeStart, InterfaceMAC, BoardCastAddr)
+	err := sendEAPOL(0x01, layers.EAPOLTypeStart, InterfaceMAC, BoardCastAddr)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	return true
 }
 
 // sending logoff message

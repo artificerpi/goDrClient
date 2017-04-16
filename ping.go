@@ -182,6 +182,7 @@ func getTime(host string, version int) (*msg, error) {
 // requested version of the NTP protocol. The version may be 2, 3, or 4;
 // although 4 is most typically used.
 func TimeV(host string, version int) (time.Time, error) {
+	log.Println(host, version)
 	m, err := getTime(host, version)
 	if err != nil {
 		return time.Now(), err
@@ -189,9 +190,12 @@ func TimeV(host string, version int) (time.Time, error) {
 	return m.ReceiveTime.Time().Local(), nil
 }
 
+// check network by verify time from ntp server
+//	https://help.ubuntu.com/lts/serverguide/NTP.html
 func checkNTP() bool {
-	host := string(rand.Intn(4)) + ".pool.ntp.org"
-	tm, err := TimeV(host, 4)
+	servers := [4]string{"0.pool.ntp.org", "1.pool.ntp.org",
+		"2.pool.ntp.org", "3.pool.ntp.org"}
+	tm, err := TimeV(servers[rand.Intn(4)], 4)
 	if err != nil {
 		log.Println(err)
 		return false
