@@ -108,12 +108,8 @@ func sniff() {
 			}
 		case <-time.After(time.Millisecond * 14500): // timeout within 15s
 			log.Println("Timeout for sniffing packet source")
-			if isOnline {
-				sendPacket40(0x01)
-			} else {
-				setOnline(false)
-				startRequest() // restart eap auth
-			}
+			setOnline(false)
+			startRequest() // restart eap auth
 		}
 	}
 }
