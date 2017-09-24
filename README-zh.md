@@ -6,12 +6,20 @@
  - DRCOM 网络数据包分析
  - gopacket依赖库使用
 
-## TODO:
-- [x] 增加检测网络状况重连功能
+## 特点:
+- [x] 跨平台（支持Windows, Linux x64 & arm等)
+- [x] 只保留最基本的认证功能(无热点共享等限制)
+- [x] 检测网络状况自动重连功能
 - [x] 对用户密码进行简单的加密
-    使用了Base64对数据脱敏加密
+- [x] 可以配置抓取认证网络包
+
+## 测试运行环境
+Win10, Ubuntu 16.04, Raspberry Pi3
+
 	
 ## 安装使用
 请先安装winpcap然后再运行本程序
+
+具体请看[Wiki](https://github.com/artificerpi/gofsnet/wiki/Build-this-project)
  
 **欢迎有兴趣的开发者参与其中一起学习交流**
