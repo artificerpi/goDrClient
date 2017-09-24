@@ -24,6 +24,9 @@ There is also a [wiki about how to build it](https://github.com/artificerpi/gofs
 ### run
  `gofsnet [-c CONFIG-FILE]`
 
+## TODO
+- [ ] Add more test codes
+
 ## Reference
 * [Understanding 802.1X](https://sites.google.com/site/amitsciscozone/home/switching/802-1x)
 * [Blog of cuberl](http://cuberl.com/2016/09/17/make-a-drcom-client-by-yourself/)
@@ -35,7 +38,7 @@ There is also a [wiki about how to build it](https://github.com/artificerpi/gofs
 * [pyscutclient_drcom by @7forz](https://github.com/scutclient/pyscutclient_drcom) A python version of drcom client.
 
 ## Warning
-This project is only for learn and test, you should not apply it for any illegal usage.
+This project is written only for learning and testing, you should not apply it for any illegal usage.
 
 ## LICENSE
 [GNU GENERAL PUBLIC LICENSE](https://www.gnu.org/licenses/gpl-3.0.en.html)
