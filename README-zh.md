@@ -15,6 +15,7 @@
 
 ## 测试运行环境
 Win10, Ubuntu 16.04, Raspberry Pi3
+[SCUT宿舍网络环境](https://github.com/YSunLIN/fsn_server)
 
 	
 ## 安装使用
