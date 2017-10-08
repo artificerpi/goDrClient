@@ -17,8 +17,6 @@ Install the prerequisites. You will need go, libpcap and the gopacket package. S
 
 You might also want to check out the [gopacket project on GitHub](https://github.com/google/gopacket) and documentation on [GoDoc gopacket](https://godoc.org/github.com/google/gopacket).
 
-Currently there is a [problem to decode EAP packet](https://github.com/google/gopacket/issues/249), you may need replace the eapol.go with this [one](https://github.com/artificerpi/gopacket/blob/master/layers/eapol.go). 
-
 There is also a [wiki about how to build it](https://github.com/artificerpi/gofsnet/wiki/Build-this-project).
 
 ### run
