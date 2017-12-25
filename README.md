@@ -1,42 +1,33 @@
-# gofsnet 
-  A simple project to learn IEEE 802.1X protocol and drcom protocol (version: 5.2.x) with golang.
+# gofsnet
+　一个用来学习IEEE 802.1X协议和drcom协议的简单项目，使用go语言。
 
-- [中文](https://github.com/artificerpi/gofsnet/blob/master/README-zh.md)
+- [English](https://github.com/artificerpi/gofsnet/blob/master/README-en.md)
 
-## Try it 
-* This project is using gopacket packages, so if you want to build it, you should make sure you have  done following things before start.
+## 主要知识：
 
-Install the prerequisites. You will need go, libpcap and the gopacket package. Since gopacket is built on top of libpcap, I highly recommend you understand how that library works. You can learn how to use libpcap in C for a deeper understanding. These examples should work in Linux/Mac using libpcap and on Windows with WinPcap. You may need to set GOARCH=386 if you get an error like cc1.exe: sorry, unimplemented: 64-bit mode not compiled in.
+- EAP (EAPOL)协议
+- DRCOM 网络数据包分析
+- gopacket依赖库使用
 
-```bash
-	# Get the gopacket package from GitHub
-	go get github.com/google/gopacket
-	# Pcap dev headers might be necessary
-	sudo apt-get install libpcap-dev
-```
+## 特点:
 
-You might also want to check out the [gopacket project on GitHub](https://github.com/google/gopacket) and documentation on [GoDoc gopacket](https://godoc.org/github.com/google/gopacket).
+- [x] 跨平台（支持Windows, Linux x64 & arm等)
+- [x] 只保留最基本的网络认证功能(无热点共享等限制)
+- [x] 检测网络状况自动重连功能
+- [x] 非明文的用户密码及简单可配置选项
+- [x] 可以配置抓取认证网络包
 
-There is also a [wiki about how to build it](https://github.com/artificerpi/gofsnet/wiki/Build-this-project).
+## 测试运行环境
 
-### run
- `gofsnet [-c CONFIG-FILE]`
+- Win10, Ubuntu 16.04, Raspberry Pi3
+- [SCUT宿舍网络环境](https://github.com/YSunLIN/fsn_server)
 
-## TODO
-- [ ] Add more test codes
+## 安装使用
 
-## Reference
-* [Understanding 802.1X](https://sites.google.com/site/amitsciscozone/home/switching/802-1x)
-* [Blog of cuberl](http://cuberl.com/2016/09/17/make-a-drcom-client-by-yourself/)
+请先安装[winpcap](https://www.winpcap.org/)然后再运行本程序
 
+具体请看[Wiki](https://github.com/artificerpi/gofsnet/wiki/Build-this-project)
 
+- 如有问题请[在Issue中提出](https://github.com/artificerpi/gofsnet/issues)
 
-## Inspiration & Ideas
-* [fsn_server By @YSunLIN](https://github.com/YSunLIN/fsn_server) A c version of drcom client.
-* [pyscutclient_drcom by @7forz](https://github.com/scutclient/pyscutclient_drcom) A python version of drcom client.
-
-## Warning
-This project is written only for learning and testing, you should not apply it for any illegal usage.
-
-## LICENSE
-[GNU GENERAL PUBLIC LICENSE](https://www.gnu.org/licenses/gpl-3.0.en.html)
+**欢迎有兴趣的开发者参与其中一起学习交流**
